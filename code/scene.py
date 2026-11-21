@@ -84,3 +84,22 @@ class Node:
         if self.parent is None:
             return self.local()
         return mx.mul(self.parent.world(), self.local())
+
+    def all_nodes(self):
+        """This node and every node below it, parent before children
+        (depth-first). The GUI object selector is filled from this list."""
+        nodes = [self]
+        for child in self.children:
+            nodes.extend(child.all_nodes())
+        return nodes
+
+    def find(self, name):
+        """The first node called `name` in this subtree, or None."""
+        for node in self.all_nodes():
+            if node.name == name:
+                return node
+        return None
+
+    def depth(self):
+        """0 for the root, 1 for its children, ... (used to indent the selector)."""
+        return 0 if self.parent is None else self.parent.depth() + 1
