@@ -50,3 +50,20 @@ class Node:
 
     def __repr__(self):
         return "Node(%r)" % self.name
+
+    def local(self):
+        """This node's own transform matrix:  T . R . S
+
+        Read right to left: scale the figure about its own centre, rotate it
+        about its own centre, THEN move it into place. Doing T before R would
+        swing the object around the parent's origin instead of turning it.
+        """
+        if self.dim == 2:
+            return mx.compose(mx.translate2(self.tx, self.ty),
+                              mx.rotate2(math.radians(self.angle)),
+                              mx.scale2(self.sx, self.sy))
+        return mx.compose(mx.translate3(self.tx, self.ty, self.tz),
+                          mx.rot_z(math.radians(self.rz)),
+                          mx.rot_y(math.radians(self.ry)),
+                          mx.rot_x(math.radians(self.rx)),
+                          mx.scale3(self.sx, self.sy, self.sz))
