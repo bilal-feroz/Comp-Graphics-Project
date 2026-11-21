@@ -83,6 +83,11 @@ def color_to_hex(color):
     return "#%02x%02x%02x" % (r, g, b)
 
 
+def format_matrix(M):
+    """Rows of a matrix as aligned text for the world-matrix panel."""
+    return "\n".join(" ".join("%7.2f" % (round(value, 2) + 0.0) for value in row) for row in M)
+
+
 # ======================================================================= widgets
 
 class GLCanvas(OpenGLFrame):
@@ -242,6 +247,7 @@ class MainWindow:
         self._build_selection_section()
         self._build_tuning_section()
         self._build_camera_section()
+        self._build_matrix_section()
         self.refresh_selector()
         self._refresh_panels()            # starts the 5-times-a-second refresh
 
@@ -350,6 +356,13 @@ class MainWindow:
     def _build_camera_section(self):
         box = self._tab("Camera (3D view)")
         self.camera = CameraControls(box, 0, self.app.report_error)
+
+    def _build_matrix_section(self):
+        box = self._section("World matrix of the selected object")
+        self.matrix_text = tk.Text(box, width=38, height=11, font=("Consolas", 9),
+                                   relief="flat", takefocus=False)
+        self.matrix_text.grid(row=0, column=0, columnspan=3, sticky="ew")
+        self.matrix_text.config(state="disabled")
 
     # ------------------------------------------------------------------ App -> GUI
 
@@ -477,7 +490,25 @@ class MainWindow:
             self.status_view.config(text="View %s%s" % (self.app.view,
                                                         "  PAUSED" if self.app.paused else ""))
             self.status_selected.config(text="Selected: %s" % (node.name if node else "none"))
+            self._write_matrix(self._matrix_report(node))
         except Exception as error:
             self.app.report_error(error)
         finally:
             self.root.after(PANEL_REFRESH_MS, self._refresh_panels)
+
+    @staticmethod
+    def _matrix_report(node):
+        if node is None:
+            return "Select an object to see its matrices."
+        kind = "2D, 3x3" if node.dim == 2 else "3D, 4x4"
+        parent = node.parent.name if node.parent else "none (root)"
+        return ("%s  (%s)   parent: %s\nlocal = T . R . S\n%s\n"
+                "world = parent world . local\n%s"
+                % (node.name, kind, parent, format_matrix(node.local()),
+                   format_matrix(node.world())))
+
+    def _write_matrix(self, text):
+        self.matrix_text.config(state="normal")
+        self.matrix_text.delete("1.0", "end")
+        self.matrix_text.insert("1.0", text)
+        self.matrix_text.config(state="disabled")
