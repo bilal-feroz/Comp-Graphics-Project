@@ -59,9 +59,8 @@ def mul(A, B):
     Entry (i, j) of the result = row i of A  "dot"  column j of B.
     Order matters: mul(A, B) applies B to the point first, then A.
     """
-    rows, inner, cols = len(A), len(B), len(B[0])
-    return [[sum(A[i][k] * B[k][j] for k in range(inner)) for j in range(cols)]
-            for i in range(rows)]
+    columns = list(zip(*B))          # zip(*B) turns the rows of B into its columns
+    return [[sum(a * b for a, b in zip(row, column)) for column in columns] for row in A]
 
 
 def apply2(M, vertices):
