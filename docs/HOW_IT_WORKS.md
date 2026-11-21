@@ -235,3 +235,19 @@ Game(): update(dt), reset(), toggle_attract()
 
 Each renderer sets **all** the OpenGL state it needs at the start of `draw` (viewport,
 projection, depth test, lighting), so switching views never leaks state from one to the other.
+
+## Tests
+
+Run from `code/`: `python -m unittest -v`. Member 1's tests:
+
+* `mul` matches a hand-worked 3×3 product
+* `rotate2(90°)` maps (1, 0) to (0, 1)
+* `T·R·S` order: (1, 0) → (5, 2)
+* `inverse2(M) · M = I`, and a zero scale is refused
+* `to_gl(translate3(1, 2, 3))` puts 1, 2, 3 at indices 12, 13, 14, and a 3×3 is embedded correctly
+* `rot_y(90°)` maps z to x
+* child follows parent (2D and 3D), child orbits a rotating parent, root world = local
+* `find` / `all_nodes` order, mixing 2D and 3D nodes is refused
+* GUI validation: partial numbers, clamping, rejecting `''`, `'-'`, `nan`, `inf`, angle wrapping
+
+GitHub Actions runs the same tests on Windows for every push and pull request.
