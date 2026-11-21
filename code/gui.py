@@ -24,12 +24,43 @@ How the GUI talks to the rest of the program:
   * every callback goes through safe(): an exception becomes a red message
     in the status bar instead of a crash.
 """
+import re
 import tkinter as tk
 from tkinter import ttk
 
 from OpenGL.GL import glClearColor
 from pyopengltk import OpenGLFrame
 MESSAGE_SHOW_MS = 6000
+
+
+# ======================================================================= input helpers
+# Plain functions without widgets, so test_graphics.py can test them.
+
+_PARTIAL_NUMBER = re.compile(r"^-?\d*\.?\d*$")
+
+
+def is_partial_number(text):
+    """True while the text can still become a number: '', '-', '1.', '-0.5'.
+    Used as the entry boxes' validatecommand, so a letter is refused the
+    moment it is typed."""
+    return bool(_PARTIAL_NUMBER.match(text))
+
+
+def clamp(value, low, high):
+    """Keep value inside [low, high]."""
+    return max(low, min(high, value))
+
+
+def parse_number(text, low, high):
+    """Entry text -> float inside [low, high]. Raises ValueError for text that
+    is not a finite number (for example '' or '-')."""
+    try:
+        value = float(text)
+    except ValueError:
+        raise ValueError("'%s' is not a number" % text) from None
+    if value != value or value in (float("inf"), float("-inf")):
+        raise ValueError("'%s' is not a finite number" % text)
+    return clamp(value, low, high)
 
 
 # ======================================================================= widgets
@@ -58,6 +89,71 @@ class GLCanvas(OpenGLFrame):
         self.tkMakeCurrent()
         self.redraw()
         self.tkSwapBuffers()
+
+
+class SliderRow:
+    """One numeric control: label + slider + entry box that always agree.
+
+    on_change(value) receives a float that is already inside [low, high].
+    on_error(error) is called when the typed text is not a number.
+    """
+
+    def __init__(self, parent, row, text, low, high, value, on_change, on_error, digits=2):
+        self.low, self.high = float(low), float(high)
+        self.on_change = on_change
+        self.on_error = on_error
+        self.digits = digits
+        self.var = tk.DoubleVar(value=clamp(float(value), self.low, self.high))
+
+        ttk.Label(parent, text=text).grid(row=row, column=0, sticky="w", pady=1)
+        self.scale = ttk.Scale(parent, from_=self.low, to=self.high, variable=self.var,
+                               command=self._slider_moved, takefocus=False)
+        self.scale.grid(row=row, column=1, sticky="ew", padx=4)
+        only_numbers = (parent.register(is_partial_number), "%P")
+        self.entry = ttk.Entry(parent, width=7, validate="key", validatecommand=only_numbers)
+        self.entry.grid(row=row, column=2, sticky="e")
+        self.entry.bind("<Return>", self._typed)
+        self.entry.bind("<FocusOut>", self._typed)
+        self._show(self.var.get())
+
+    def get(self):
+        return clamp(self.var.get(), self.low, self.high)
+
+    def set(self, value):
+        """Move the slider from code. Does NOT call on_change."""
+        value = clamp(float(value), self.low, self.high)
+        self.var.set(value)
+        self._show(value)
+
+    def set_enabled(self, enabled):
+        flag = ["!disabled"] if enabled else ["disabled"]
+        self.scale.state(flag)
+        self.entry.state(flag)
+
+    def _show(self, value):
+        self.entry.delete(0, "end")
+        self.entry.insert(0, "%.*f" % (self.digits, value))
+
+    def _slider_moved(self, _text):
+        value = self.get()
+        self._show(value)
+        self._notify(value)
+
+    def _typed(self, _event=None):
+        try:
+            value = parse_number(self.entry.get(), self.low, self.high)
+        except ValueError as error:
+            self.on_error(error)
+            self._show(self.get())        # put the last good value back
+            return
+        self.set(value)
+        self._notify(value)
+
+    def _notify(self, value):
+        try:
+            self.on_change(value)
+        except Exception as error:       # never let a callback crash the GUI
+            self.on_error(error)
 
 
 # ======================================================================= main window
