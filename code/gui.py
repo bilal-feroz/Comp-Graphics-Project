@@ -36,6 +36,28 @@ from pyopengltk import OpenGLFrame
 
 HELP_LINE = ("Space pause   R reset   V 2D/3D   Left/Right paddle   M attract mode   "
              "H help   |   click = select (2D)   drag / wheel = camera (3D)")
+HELP_TEXT = """KEYBOARD
+  Space        pause / play
+  R            reset the game and the scene
+  V            switch between the 2D and 3D view
+  Left, Right  move the paddle
+  M            attract mode (the paddle plays by itself)
+  H            show / hide this help
+
+MOUSE
+  2D view      click an object to select it
+  3D view      drag to orbit the camera, wheel to zoom
+
+CONTROL PANEL
+  Speed        0.1x to 3x animation speed
+  Object       pick any node of the scene graph
+  Size         scales the selected node (and its children)
+  Rotation     turns the selected node (and its children)
+  Colour       colour of the selected node (or its whole group)
+  Camera       yaw, pitch and distance of the 3D camera
+
+Typed values are checked: letters are refused and numbers
+are clamped to the slider's range."""
 PANEL_REFRESH_MS = 200        # status bar + matrix panel: 5 times a second
 MESSAGE_SHOW_MS = 6000
 
@@ -238,6 +260,7 @@ class MainWindow:
         self.fps = 0.0
         self.fps_started = time.perf_counter()
         self.held_keys = set()            # arrow keys currently held down
+        self.help_window = None
         self.message_job = None
         self.camera = None                # CameraControls, created with the camera tab
         # Fit the window on the screen (lab PCs and laptops differ).
@@ -537,6 +560,8 @@ class MainWindow:
             self.app.reset()
         elif key == "v":
             self.app.toggle_view()
+        elif key == "h":
+            self.toggle_help()
         elif key == "m":
             self.app.game.toggle_attract()
             self.show_message("Attract mode " + ("on" if self.app.game.attract else "off"))
@@ -553,3 +578,18 @@ class MainWindow:
     def _update_paddle(self):
         """Arrow keys -> game.paddle_input: -1 left, +1 right, 0 none (or both)."""
         self.app.game.paddle_input = ("right" in self.held_keys) - ("left" in self.held_keys)
+
+    def toggle_help(self):
+        """H key: open or close the help window."""
+        if self.help_window is not None and self.help_window.winfo_exists():
+            self.help_window.destroy()
+            self.help_window = None
+            return
+        window = tk.Toplevel(self.root)
+        window.title("Help - controls")
+        window.transient(self.root)
+        ttk.Label(window, text=HELP_TEXT, justify="left", padding=14,
+                  font=("Consolas", 10)).pack()
+        ttk.Button(window, text="Close (H)", takefocus=False,
+                   command=self.safe(self.toggle_help)).pack(pady=(0, 12))
+        self.help_window = window
