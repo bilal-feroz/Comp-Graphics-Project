@@ -38,3 +38,25 @@ def circle(r):
 # TODO(M2): brick, paddle with rounded ends, ball, UFO body, UFO dome, UFO light,
 #           heart (lives), joystick base / stick / knob, button, cabinet frame,
 #           seven-segment digit (7 segments)
+
+# ======================================================================= 3D (Member 4)
+
+
+def box(w, h, d):
+    """Box w x h x d: 8 vertices and 6 quad faces (counter-clockwise from outside)."""
+    x, y, z = w / 2.0, h / 2.0, d / 2.0
+    vertices = [(-x, -y, -z), (x, -y, -z), (x, y, -z), (-x, y, -z),   # back  (z < 0)
+                (-x, -y, z), (x, -y, z), (x, y, z), (-x, y, z)]       # front (z > 0)
+    faces = [(4, 5, 6, 7),   # front  +z
+             (1, 0, 3, 2),   # back   -z
+             (1, 2, 6, 5),   # right  +x
+             (0, 4, 7, 3),   # left   -x
+             (3, 7, 6, 2),   # top    +y
+             (0, 1, 5, 4)]   # bottom -y
+    return vertices, faces
+
+
+# TODO(M4): bevelled_brick()  12 vertices, 10 faces (team model 1)
+#           trophy()          profile of ~10 points turned around y in 16 steps (team model 2)
+#           star()            octahedron, 6 vertices, 8 faces
+#           face_normal(...)  cross product of two edges, normalised
