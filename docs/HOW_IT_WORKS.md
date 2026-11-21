@@ -213,3 +213,25 @@ chain up to the root. The result is the same as `node.world()`, just faster.
    `root.report_callback_exception` catches anything else, and `tick` always schedules
    the next frame.
 4. Keyboard shortcuts are ignored while you type in an entry box, so typing "r" does not reset.
+
+## Interfaces the other members implement
+
+```python
+# render2d.py (M2)
+build_scene() -> Node            sync(root, game, dt)
+draw(root, width, height, selected)
+pick(root, px, py, width, height) -> Node or None
+
+# render3d.py (M4)
+build_scene() -> Node(dim=3)     sync(root, game, dt)
+draw(root, width, height, camera, selected)
+on_drag(camera, dx, dy)          on_wheel(camera, steps)
+#   camera.yaw / camera.pitch / camera.distance, camera.set(yaw=, pitch=, distance=)
+
+# game.py (M3) - no OpenGL
+Game(): update(dt), reset(), toggle_attract()
+        ball_speed, ufo_orbit_speed, paddle_width, paddle_input
+```
+
+Each renderer sets **all** the OpenGL state it needs at the start of `draw` (viewport,
+projection, depth test, lighting), so switching views never leaks state from one to the other.
