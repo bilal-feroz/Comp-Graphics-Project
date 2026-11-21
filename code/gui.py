@@ -174,6 +174,46 @@ class SliderRow:
             self.on_error(error)
 
 
+class CameraControls:
+    """The yaw / pitch / distance sliders (Tk variables) for the 3D camera.
+
+    render3d.py (Member 4) reads camera.yaw, camera.pitch and camera.distance
+    every frame, and calls camera.set(...) from mouse drags so the sliders
+    always show the real camera.
+    """
+
+    def __init__(self, parent, first_row, on_error):
+        def nothing(_value):
+            pass                          # render3d reads the values every frame
+        self.yaw_row = SliderRow(parent, first_row, "Yaw (deg)", -180, 180, 0,
+                                 nothing, on_error, digits=0)
+        self.pitch_row = SliderRow(parent, first_row + 1, "Pitch (deg)", -80, 80, 25,
+                                   nothing, on_error, digits=0)
+        self.distance_row = SliderRow(parent, first_row + 2, "Distance", 5, 40, 22,
+                                      nothing, on_error, digits=1)
+
+    @property
+    def yaw(self):
+        return self.yaw_row.get()
+
+    @property
+    def pitch(self):
+        return self.pitch_row.get()
+
+    @property
+    def distance(self):
+        return self.distance_row.get()
+
+    def set(self, yaw=None, pitch=None, distance=None):
+        """Change the camera from code. Yaw wraps around, the rest is clamped."""
+        if yaw is not None:
+            self.yaw_row.set(wrap_degrees(yaw))
+        if pitch is not None:
+            self.pitch_row.set(pitch)
+        if distance is not None:
+            self.distance_row.set(distance)
+
+
 # ======================================================================= main window
 
 class MainWindow:
@@ -183,6 +223,7 @@ class MainWindow:
         self.root = root
         self.app = app
         self.selector_nodes = []          # node for each line of the dropdown
+        self.shown_view = app.view        # which view the notebook tab matches
         self.message_job = None
         self.camera = None                # CameraControls, created with the camera tab
         # Fit the window on the screen (lab PCs and laptops differ).
@@ -195,6 +236,7 @@ class MainWindow:
         self._build_simulation_section()
         self._build_selection_section()
         self._build_tuning_section()
+        self._build_camera_section()
         self.refresh_selector()
 
     # ------------------------------------------------------------------ layout
@@ -292,6 +334,10 @@ class MainWindow:
         self.tabs.add(box, text=title)
         return box
 
+    def _build_camera_section(self):
+        box = self._tab("Camera (3D view)")
+        self.camera = CameraControls(box, 0, self.app.report_error)
+
     # ------------------------------------------------------------------ App -> GUI
 
     def refresh_controls(self):
@@ -299,6 +345,9 @@ class MainWindow:
         self.pause_button.config(text="Play" if self.app.paused else "Pause")
         self.speed.set(self.app.speed)
         self.view_var.set(self.app.view)
+        if self.app.view != self.shown_view:      # the view just changed:
+            self.shown_view = self.app.view       # bring up the matching tab
+            self.tabs.select(1 if self.app.view == "3D" else 0)
 
     def refresh_selector(self):
         """Fill the dropdown from scene.all_nodes() of the current view.
