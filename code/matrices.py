@@ -51,3 +51,23 @@ def rotate2(theta):
     return [[c, -s, 0.0],
             [s, c, 0.0],
             [0.0, 0.0, 1.0]]
+
+
+def mul(A, B):
+    """Matrix product A . B (works for 3x3 and 4x4).
+
+    Entry (i, j) of the result = row i of A  "dot"  column j of B.
+    Order matters: mul(A, B) applies B to the point first, then A.
+    """
+    rows, inner, cols = len(A), len(B), len(B[0])
+    return [[sum(A[i][k] * B[k][j] for k in range(inner)) for j in range(cols)]
+            for i in range(rows)]
+
+
+def apply2(M, vertices):
+    """Transform a list of 2D points: each (x, y) becomes M . (x, y, 1)."""
+    result = []
+    for x, y in vertices:
+        result.append((M[0][0] * x + M[0][1] * y + M[0][2],
+                       M[1][0] * x + M[1][1] * y + M[1][2]))
+    return result
