@@ -66,3 +66,20 @@ Status bar (bottom): animation time, frames per second, view, selected object,
 and messages. Wrong input never crashes the program: sliders stay in range,
 entry boxes refuse letters, typed numbers are clamped, and any error is shown
 in red in the status bar.
+
+
+FILES (code/)
+-------------
+    main.py           program start, animation loop (after + dt)       Member 1
+    matrices.py       our own 3x3 and 4x4 matrix functions              Member 1
+    scene.py          Node class and scene graph                        Member 1
+    gui.py            window, control panel, status bar, input          Member 1
+    test_graphics.py  unit tests (python -m unittest)                   Member 1 + all
+    figures.py        2D figures (Member 2), 3D figures (Member 4)
+    raster.py         Bresenham, midpoint circle, scan-line fill        Member 2
+    render2d.py       draws the 2D scene                                Member 2
+    game.py           game state, update(dt), collisions, score         Member 3
+    persist.py        JSON save / load, screenshot (optional)           Member 3
+    render3d.py       3D drawing, lights, camera                        Member 4
+
+More detail: docs/HOW_IT_WORKS.md (architecture, scene graph, frame loop).
