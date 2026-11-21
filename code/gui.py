@@ -34,6 +34,9 @@ from tkinter import ttk
 from OpenGL.GL import glClearColor
 from pyopengltk import OpenGLFrame
 
+import render2d
+import render3d
+
 HELP_LINE = ("Space pause   R reset   V 2D/3D   Left/Right paddle   M attract mode   "
              "H help   |   click = select (2D)   drag / wheel = camera (3D)")
 HELP_TEXT = """KEYBOARD
@@ -261,6 +264,7 @@ class MainWindow:
         self.fps_started = time.perf_counter()
         self.held_keys = set()            # arrow keys currently held down
         self.help_window = None
+        self.drag_from = (0, 0)
         self.message_job = None
         self.camera = None                # CameraControls, created with the camera tab
         # Fit the window on the screen (lab PCs and laptops differ).
@@ -276,6 +280,7 @@ class MainWindow:
         self._build_camera_section()
         self._build_matrix_section()
         self._bind_keys()
+        self._bind_mouse()
         self.refresh_selector()
         self._refresh_panels()            # starts the 5-times-a-second refresh
 
@@ -593,3 +598,36 @@ class MainWindow:
         ttk.Button(window, text="Close (H)", takefocus=False,
                    command=self.safe(self.toggle_help)).pack(pady=(0, 12))
         self.help_window = window
+
+    # ------------------------------------------------------------------ mouse
+
+    def _bind_mouse(self):
+        self.canvas.bind("<ButtonPress-1>", self.safe(self._mouse_down))
+        self.canvas.bind("<B1-Motion>", self.safe(self._mouse_drag))
+        self.root.bind_all("<MouseWheel>", self.safe(self._mouse_wheel))      # Windows, macOS
+        self.canvas.bind("<Button-4>", self.safe(lambda e: self._wheel(+1)))  # Linux
+        self.canvas.bind("<Button-5>", self.safe(lambda e: self._wheel(-1)))
+
+    def _mouse_down(self, event):
+        self.canvas.focus_set()
+        self.drag_from = (event.x, event.y)
+        if self.app.view == "2D":
+            node = render2d.pick(self.app.scene2d, event.x, event.y,
+                                 self.canvas.winfo_width(), self.canvas.winfo_height())
+            if node is not None:
+                self.app.select(node)
+
+    def _mouse_drag(self, event):
+        dx, dy = event.x - self.drag_from[0], event.y - self.drag_from[1]
+        self.drag_from = (event.x, event.y)
+        if self.app.view == "3D":
+            render3d.on_drag(self.camera, dx, dy)
+
+    def _mouse_wheel(self, event):
+        over = self.root.winfo_containing(event.x_root, event.y_root)
+        if over is self.canvas:           # only zoom when the mouse is over the picture
+            self._wheel(1 if event.delta > 0 else -1)
+
+    def _wheel(self, steps):
+        if self.app.view == "3D":
+            render3d.on_wheel(self.camera, steps)
