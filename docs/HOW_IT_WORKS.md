@@ -46,3 +46,34 @@ graph LR
 **Rule that keeps the parts independent:** `game.py` only holds numbers in world units
 and never calls OpenGL. The renderers only *read* the game. That is why the same game
 shows up in both the 2D and the 3D view.
+
+## One frame, step by step (`main.py`)
+
+```mermaid
+sequenceDiagram
+    participant Tk as Tk event loop
+    participant App as App.tick()
+    participant Game as game.update(dt)
+    participant Sync as render2d/3d.sync
+    participant Canvas as GLCanvas
+    Tk->>App: after(~16 ms)
+    App->>App: dt = perf_counter() - last  (max 0.1 s)
+    alt not paused
+        App->>Game: update(dt * speed)
+        App->>Sync: copy ball, paddle, bricks... onto nodes
+    end
+    App->>Canvas: render_frame(): draw view, swap buffers
+    App->>Tk: after(16 ms - time used, tick)
+```
+
+* **Timer-based, no busy-wait.** `after()` asks Tk to call `tick` again later. Between frames
+  Tk is free to handle the mouse and keyboard. There is no `sleep()` and no `while True`.
+* **`dt` makes speed independent of the frame rate.** Movement is `velocity × dt`, so the
+  ball covers the same distance per second at 30 or at 60 FPS. The speed slider just
+  multiplies `dt`. Pause means we skip `update` but still draw, so the camera works while paused.
+* **`dt` is capped at 0.1 s.** If the window freezes (dragging it, a dialog), the ball
+  does not jump through a wall on the next frame.
+* **Double buffering.** We draw into the hidden back buffer. `tkSwapBuffers()` shows the
+  finished picture in one go, so it never flickers.
+* **The `try / finally` in `tick`** always schedules the next frame, so one bad frame
+  shows an error in the status bar instead of freezing the animation.
