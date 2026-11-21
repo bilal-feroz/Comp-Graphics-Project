@@ -23,6 +23,8 @@ graph LR
     main --> r2[render2d.py]
     main --> r3[render3d.py]
     gui --> main
+    r2 --> anim[anim2d.py<br/>2D animation]
+    anim --> game
     r2 --> scene[scene.py<br/>Node, draw traversal]
     r3 --> scene
     r2 --> fig[figures.py]
@@ -40,7 +42,7 @@ graph LR
 | `test_graphics.py` | M1 + all | Unit tests, `python -m unittest` |
 | `figures.py` | M2 / M4 | Vertex lists (2D) and vertex + face tables (3D) |
 | `raster.py`, `render2d.py` | M2 | Course algorithms, drawing the 2D scene, click-to-select |
-| `game.py`, `persist.py` | M3 | Game rules (no OpenGL), save / load |
+| `game.py`, `anim2d.py`, `persist.py` | M3 | Game rules (no OpenGL), 2D animation, save / load (see [GAMEPLAY.md](GAMEPLAY.md)) |
 | `render3d.py` | M4 | Perspective, lighting, camera, 3D drawing |
 
 **Rule that keeps the parts independent:** `game.py` only holds numbers in world units
@@ -229,8 +231,12 @@ on_drag(camera, dx, dy)          on_wheel(camera, steps)
 #   camera.yaw / camera.pitch / camera.distance, camera.set(yaw=, pitch=, distance=)
 
 # game.py (M3) - no OpenGL
-Game(): update(dt), reset(), toggle_attract()
+Game(): update(dt), reset(), toggle_attract(), launch(), pop_events()
         ball_speed, ufo_orbit_speed, paddle_width, paddle_input
+        score, lives, level, high_score, state, banner
+
+# anim2d.py (M3) - render2d.sync calls it
+sync(root, game, dt)             ensure_nodes(root)
 ```
 
 Each renderer sets **all** the OpenGL state it needs at the start of `draw` (viewport,
