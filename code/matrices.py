@@ -33,3 +33,21 @@ def translate2(tx, ty):
     return [[1.0, 0.0, float(tx)],
             [0.0, 1.0, float(ty)],
             [0.0, 0.0, 1.0]]
+
+
+def scale2(sx, sy):
+    """Scale about the origin:   x' = sx * x,   y' = sy * y."""
+    return [[float(sx), 0.0, 0.0],
+            [0.0, float(sy), 0.0],
+            [0.0, 0.0, 1.0]]
+
+
+def rotate2(theta):
+    """Rotate counter-clockwise by theta radians about the origin:
+        x' = x cos(theta) - y sin(theta)
+        y' = x sin(theta) + y cos(theta)
+    """
+    c, s = math.cos(theta), math.sin(theta)
+    return [[c, -s, 0.0],
+            [s, c, 0.0],
+            [0.0, 0.0, 1.0]]
