@@ -17,3 +17,15 @@ Libraries (all from PyPI):
 
 Install them once:
     pip install -r requirements.txt
+
+
+RUN
+---
+    cd code
+    python main.py
+
+
+TESTS
+-----
+    cd code
+    python -m unittest -v
