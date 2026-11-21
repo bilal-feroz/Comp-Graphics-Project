@@ -33,6 +33,9 @@ from tkinter import ttk
 
 from OpenGL.GL import glClearColor
 from pyopengltk import OpenGLFrame
+
+HELP_LINE = ("Space pause   R reset   V 2D/3D   Left/Right paddle   M attract mode   "
+             "H help   |   click = select (2D)   drag / wheel = camera (3D)")
 PANEL_REFRESH_MS = 200        # status bar + matrix panel: 5 times a second
 MESSAGE_SHOW_MS = 6000
 
@@ -234,6 +237,7 @@ class MainWindow:
         self.frames = 0                   # frames drawn since fps_started
         self.fps = 0.0
         self.fps_started = time.perf_counter()
+        self.held_keys = set()            # arrow keys currently held down
         self.message_job = None
         self.camera = None                # CameraControls, created with the camera tab
         # Fit the window on the screen (lab PCs and laptops differ).
@@ -248,6 +252,7 @@ class MainWindow:
         self._build_tuning_section()
         self._build_camera_section()
         self._build_matrix_section()
+        self._bind_keys()
         self.refresh_selector()
         self._refresh_panels()            # starts the 5-times-a-second refresh
 
@@ -262,6 +267,9 @@ class MainWindow:
 
         self.panel = ttk.Frame(self.root, padding=(8, 6))
         self.panel.grid(row=0, column=1, sticky="ns")
+
+        help_bar = ttk.Label(self.root, text=HELP_LINE, anchor="w", padding=(6, 2))
+        help_bar.grid(row=1, column=0, columnspan=2, sticky="ew")
 
         status = ttk.Frame(self.root, relief="sunken", padding=(4, 1))
         status.grid(row=2, column=0, columnspan=2, sticky="ew")
@@ -512,3 +520,36 @@ class MainWindow:
         self.matrix_text.delete("1.0", "end")
         self.matrix_text.insert("1.0", text)
         self.matrix_text.config(state="disabled")
+
+    # ------------------------------------------------------------------ keyboard
+
+    def _bind_keys(self):
+        self.root.bind_all("<KeyPress>", self.safe(self._key_pressed))
+        self.root.bind_all("<KeyRelease>", self.safe(self._key_released))
+
+    def _key_pressed(self, event):
+        if isinstance(event.widget, (tk.Entry, ttk.Entry)):
+            return                        # the user is typing a number
+        key = event.keysym.lower()
+        if key == "space":
+            self.app.toggle_pause()
+        elif key == "r":
+            self.app.reset()
+        elif key == "v":
+            self.app.toggle_view()
+        elif key == "m":
+            self.app.game.toggle_attract()
+            self.show_message("Attract mode " + ("on" if self.app.game.attract else "off"))
+        elif key in ("left", "right"):
+            self.held_keys.add(key)
+            self._update_paddle()
+
+    def _key_released(self, event):
+        key = event.keysym.lower()
+        if key in ("left", "right"):
+            self.held_keys.discard(key)
+            self._update_paddle()
+
+    def _update_paddle(self):
+        """Arrow keys -> game.paddle_input: -1 left, +1 right, 0 none (or both)."""
+        self.app.game.paddle_input = ("right" in self.held_keys) - ("left" in self.held_keys)
