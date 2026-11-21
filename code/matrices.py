@@ -84,3 +84,23 @@ def compose(*matrices):
     for M in matrices[1:]:
         result = mul(result, M)
     return result
+
+
+def inverse2(M):
+    """Inverse of a 2D affine matrix  [[a, b, tx], [c, d, ty], [0, 0, 1]].
+
+    Used by click-to-select: it takes a world point back into the figure's
+    own model coordinates, where a point-in-polygon test is easy.
+    The 2x2 part [[a, b], [c, d]] is inverted with the 1/det formula, then the
+    translation is undone:  t' = -(A^-1 . t).
+    """
+    a, b, tx = M[0]
+    c, d, ty = M[1]
+    det = a * d - b * c
+    if abs(det) < 1e-12:
+        raise ValueError("matrix cannot be inverted (a scale of 0 squashes the figure flat)")
+    ia, ib = d / det, -b / det
+    ic, id_ = -c / det, a / det
+    return [[ia, ib, -(ia * tx + ib * ty)],
+            [ic, id_, -(ic * tx + id_ * ty)],
+            [0.0, 0.0, 1.0]]
