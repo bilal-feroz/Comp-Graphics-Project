@@ -67,3 +67,20 @@ class Node:
                           mx.rot_y(math.radians(self.ry)),
                           mx.rot_x(math.radians(self.rx)),
                           mx.scale3(self.sx, self.sy, self.sz))
+
+    def add(self, child):
+        """Attach child under this node and return it (so calls can be chained)."""
+        if child.dim != self.dim:
+            raise ValueError("cannot put a %dD node under a %dD node" % (child.dim, self.dim))
+        if child.parent is not None:
+            raise ValueError("%s already has a parent" % child.name)
+        child.parent = self
+        self.children.append(child)
+        return child
+
+    def world(self):
+        """Model -> world matrix:  world(parent) . local(self).
+        The root has no parent, so its world matrix is just its local one."""
+        if self.parent is None:
+            return self.local()
+        return mx.mul(self.parent.world(), self.local())
