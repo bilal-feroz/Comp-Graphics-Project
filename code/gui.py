@@ -194,6 +194,7 @@ class MainWindow:
         self._build_layout()
         self._build_simulation_section()
         self._build_selection_section()
+        self._build_tuning_section()
         self.refresh_selector()
 
     # ------------------------------------------------------------------ layout
@@ -264,6 +265,32 @@ class MainWindow:
                                              takefocus=False,
                                              command=self.safe(self._visible_changed))
         self.visible_check.pack(side="right")
+
+    def _build_tuning_section(self):
+        """Game values exposed by game.py (Member 3), on the first notebook tab."""
+        self.tabs = ttk.Notebook(self.panel, takefocus=False)
+        self.tabs.pack(fill="x", pady=(0, 6))
+        box = self._tab("Game tuning")
+        rows =[("Ball speed", "ball_speed", 1.0, 15.0, 1),
+                ("UFO orbit (deg/s)", "ufo_orbit_speed", 0.0, 360.0, 0),
+                ("Paddle width (x)", "paddle_width", 0.5, 2.5, 2)]
+        for row, (text, attribute, low, high, digits) in enumerate(rows):
+            start = getattr(self.app.game, attribute, low)
+            SliderRow(box, row, text, low, high, start, self._game_setter(attribute),
+                      self.app.report_error, digits)
+
+    def _game_setter(self, attribute):
+        """A slider callback that writes one attribute of the Game."""
+        def set_value(value):
+            setattr(self.app.game, attribute, value)
+        return set_value
+
+    def _tab(self, title):
+        """A page of the notebook. Tabs keep the panel short enough for laptop screens."""
+        box = ttk.Frame(self.tabs, padding=(6, 6))
+        box.columnconfigure(1, weight=1)
+        self.tabs.add(box, text=title)
+        return box
 
     # ------------------------------------------------------------------ App -> GUI
 
