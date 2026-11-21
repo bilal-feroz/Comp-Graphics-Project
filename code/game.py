@@ -32,3 +32,32 @@ def brick_center(row, col):
     x = WORLD_LEFT + 1.0 + col * (BRICK_W + 0.2)
     y = BRICK_TOP_Y - row * (BRICK_H + 0.25)
     return x, y
+
+
+class Game:
+    """The whole game state. update(dt) moves it forward by dt seconds."""
+
+    def __init__(self):
+        # Values the GUI's "Game tuning" sliders change.
+        self.ball_speed = 6.0         # world units per second
+        self.ufo_orbit_speed = 120.0  # degrees per second
+        self.paddle_width = 1.0       # scale factor of the paddle
+        self.reset()
+
+    def reset(self):
+        """Start a new game (R key / Reset button)."""
+        self.time = 0.0
+        self.ball_x, self.ball_y = 0.0, -5.0
+        self.ball_vx, self.ball_vy = 3.6, 4.8
+        self.ball_spin = 0.0          # degrees
+        self.paddle_x = 0.0
+        self.paddle_input = 0         # -1 left, 0 still, +1 right (set by gui.py)
+        self.attract = False          # M key: the paddle plays by itself
+        self.bricks = [[{"alive": True, "scale": 1.0, "alpha": 1.0}
+                        for _ in range(BRICK_COLS)] for _ in range(BRICK_ROWS)]
+        self.score, self.lives, self.level = 0, 3, 1
+        self.ufo_light_angle = 0.0    # degrees, the light ring around the UFO
+
+    def toggle_attract(self):
+        """M key. TODO(M3): in attract mode the paddle follows the ball."""
+        self.attract = not self.attract
