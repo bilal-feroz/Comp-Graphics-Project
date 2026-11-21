@@ -168,3 +168,30 @@ def apply3(M, vertices):
                        M[1][0] * x + M[1][1] * y + M[1][2] * z + M[1][3],
                        M[2][0] * x + M[2][1] * y + M[2][2] * z + M[2][3]))
     return result
+
+# ======================================================================= to OpenGL
+
+
+def embed3(M):
+    """Turn a 2D 3x3 matrix into the equivalent 4x4 one.
+
+    The 2x2 rotation/scale part stays top-left, the 2D translation moves to the
+    4th column, and z is left alone (z' = z).
+    """
+    return [[M[0][0], M[0][1], 0.0, M[0][2]],
+            [M[1][0], M[1][1], 0.0, M[1][2]],
+            [0.0, 0.0, 1.0, 0.0],
+            [M[2][0], M[2][1], 0.0, M[2][2]]]
+
+
+def to_gl(M):
+    """Flatten a matrix into the 16 floats glMultMatrixf expects.
+
+    OpenGL wants COLUMN-MAJOR order: all of column 0, then column 1, ...
+    Our matrices are stored row by row, so we read them column by column.
+    A 2D 3x3 matrix is embedded into 4x4 first.
+    Example: to_gl(translate3(1, 2, 3)) has 1, 2, 3 at indices 12, 13, 14.
+    """
+    if len(M) == 3:
+        M = embed3(M)
+    return [float(M[row][col]) for col in range(4) for row in range(4)]
