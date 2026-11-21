@@ -264,3 +264,41 @@ The first version ran at about 20 FPS. Three fixes brought it to about 60:
    of immediate-mode drawing.
 3. **Fewer matrix products.** The draw traversal passes the parent's world matrix down
    instead of recomputing the chain from the root for each of the 50 bricks.
+
+## Questions you might be asked
+
+**Why your own matrices instead of glTranslate/glRotate?**
+The brief requires it, and it shows we understand the maths. OpenGL only receives the
+finished matrix through `glMultMatrixf`.
+
+**Why is the order T·R·S?**
+The rightmost matrix is applied first. Scaling and rotating happen about the figure's own
+centre (the origin of model coordinates), and only then is it moved into place.
+
+**What does column-major mean in `to_gl`?**
+OpenGL stores a 4×4 matrix column after column. Our lists are row after row, so we read
+them column by column. That is why a translation ends up at indices 12, 13, 14.
+
+**How does a child follow its parent?**
+`world(child) = world(parent) · local(child)`. Nothing in the child changes. Its world
+matrix is recomputed from the parent's every frame.
+
+**Why `dt` and not a fixed step per frame?**
+Frame times vary. Speed × `dt` gives the same motion per second at any FPS, and the speed
+slider and pause are just `dt × speed` and `dt = 0`.
+
+**Why `after()` and not a `while` loop with `sleep()`?**
+A loop would block Tk's event loop, so buttons and keys would stop working. `after()` returns
+control to Tk between frames.
+
+**What is double buffering?**
+We draw into a hidden back buffer and swap it to the screen when it is finished, so you never
+see a half-drawn frame.
+
+**How do you stop bad input from crashing the program?**
+Clamped sliders, validated entry boxes, `safe()` around every callback,
+`report_callback_exception`, and `try / finally` in the frame loop.
+
+**How does the dropdown stay in sync with click-to-select?**
+Both go through `App.select(node)`, which stores the node and calls `gui.show_selection`.
+That updates the dropdown, the sliders, the colour swatch and the matrix panel.
