@@ -173,6 +173,7 @@ class MainWindow:
         root.minsize(800, 560)
         root.report_callback_exception = self._tk_error    # last safety net
         self._build_layout()
+        self._build_simulation_section()
 
     # ------------------------------------------------------------------ layout
 
@@ -198,10 +199,24 @@ class MainWindow:
         box.columnconfigure(1, weight=1)
         return box
 
+    def _build_simulation_section(self):
+        box = self._section("Simulation")
+        buttons = ttk.Frame(box)
+        buttons.grid(row=0, column=0, columnspan=3, sticky="w", pady=(0, 4))
+        self.pause_button = ttk.Button(buttons, text="Pause", width=10, takefocus=False,
+                                       command=self.safe(self.app.toggle_pause))
+        self.pause_button.pack(side="left")
+        ttk.Button(buttons, text="Reset", width=10, takefocus=False,
+                   command=self.safe(self.app.reset)).pack(side="left", padx=6)
+        self.speed = SliderRow(box, 1, "Speed (x)", 0.1, 3.0, self.app.speed,
+                               self.app.set_speed, self.app.report_error)
+
     # ------------------------------------------------------------------ App -> GUI
 
     def refresh_controls(self):
         """Make the widgets show the App state (after a key press, reset, ...)."""
+        self.pause_button.config(text="Play" if self.app.paused else "Pause")
+        self.speed.set(self.app.speed)
 
     def refresh_selector(self):
         """Fill the dropdown from scene.all_nodes() of the current view.
