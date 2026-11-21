@@ -1,0 +1,4 @@
+PyOpenGL>=3.1.6
+pyopengltk>=0.0.4
+numpy>=1.21
+Pillow>=9.0
