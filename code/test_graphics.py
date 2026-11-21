@@ -52,3 +52,17 @@ class TestMatrices(unittest.TestCase):
     def test_inverse2_refuses_a_zero_scale(self):
         with self.assertRaises(ValueError):
             mx.inverse2(mx.scale2(0, 1))
+
+    def test_to_gl_translate3_puts_translation_at_12_13_14(self):
+        flat = mx.to_gl(mx.translate3(1, 2, 3))
+        self.assertEqual(len(flat), 16)
+        self.assertEqual(flat[12:15], [1.0, 2.0, 3.0])
+
+    def test_to_gl_embeds_a_2d_matrix(self):
+        flat = mx.to_gl(mx.translate2(4, 5))
+        self.assertEqual(flat[12:16], [4.0, 5.0, 0.0, 1.0])
+        self.assertEqual(flat[10], 1.0)        # z is left unchanged
+
+    def test_rot_y_90_degrees_maps_z_axis_to_x_axis(self):
+        (point,) = mx.apply3(mx.rot_y(math.radians(90)), [(0, 0, 1)])
+        self.assertTrue(close(point, (1, 0, 0)))
