@@ -61,3 +61,40 @@ class Game:
     def toggle_attract(self):
         """M key. TODO(M3): in attract mode the paddle follows the ball."""
         self.attract = not self.attract
+
+    def update(self, dt):
+        """Advance the game by dt seconds (dt already includes the speed slider)."""
+        self.time += dt
+        self._move_paddle(dt)
+        self._move_ball(dt)
+        self.ufo_light_angle = (self.ufo_light_angle + self.ufo_orbit_speed * dt) % 360.0
+        # TODO(M3): paddle and brick collisions, score, lives, game over,
+        #           UFO on a curved path, power-up capsule, joystick, attract mode
+
+    def _move_paddle(self, dt):
+        self.paddle_x += self.paddle_input * PADDLE_SPEED * dt
+        half = PADDLE_HALF_WIDTH * self.paddle_width
+        self.paddle_x = max(WORLD_LEFT + half, min(WORLD_RIGHT - half, self.paddle_x))
+
+    def _move_ball(self, dt):
+        # Keep the direction of travel but use the speed from the slider.
+        speed = math.hypot(self.ball_vx, self.ball_vy)
+        if speed > 0:
+            self.ball_vx *= self.ball_speed / speed
+            self.ball_vy *= self.ball_speed / speed
+        self.ball_x += self.ball_vx * dt
+        self.ball_y += self.ball_vy * dt
+        self.ball_spin = (self.ball_spin + 360.0 * dt) % 360.0
+
+        # Bounce off the side walls and the ceiling.
+        if self.ball_x > WORLD_RIGHT - BALL_RADIUS:
+            self.ball_x, self.ball_vx = WORLD_RIGHT - BALL_RADIUS, -abs(self.ball_vx)
+        if self.ball_x < WORLD_LEFT + BALL_RADIUS:
+            self.ball_x, self.ball_vx = WORLD_LEFT + BALL_RADIUS, abs(self.ball_vx)
+        if self.ball_y > WORLD_TOP - BALL_RADIUS:
+            self.ball_y, self.ball_vy = WORLD_TOP - BALL_RADIUS, -abs(self.ball_vy)
+
+        # TODO(M3): lose a life here. For now the ball is served again.
+        if self.ball_y < WORLD_BOTTOM - 1.0:
+            self.ball_x, self.ball_y = self.paddle_x, PADDLE_Y + 1.0
+            self.ball_vy = abs(self.ball_vy)
