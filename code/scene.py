@@ -106,20 +106,29 @@ class Node:
         return 0 if self.parent is None else self.parent.depth() + 1
 
 
-def draw(node, draw_figure):
+def draw(node, draw_figure, parent_world=None):
     """Draw traversal: visit every visible node depth-first and draw its
     figure with its own world matrix.
 
     draw_figure(node) is supplied by render2d / render3d. It only sends the
     figure's MODEL-coordinate vertices; the matrix does all the placing.
     A hidden node is skipped together with all of its children.
+
+    The parent's world matrix is handed down the tree, so each node needs one
+    multiplication,  world = parent_world . local,  instead of rebuilding the
+    whole chain up to the root with node.world(). Same result, far fewer
+    multiplications (50 bricks share one parent).
     """
     if not node.visible:
         return
+    if parent_world is None:
+        world = node.world()
+    else:
+        world = mx.mul(parent_world, node.local())
     if node.figure is not None:
         glPushMatrix()                            # remember the camera matrix
-        glMultMatrixf(mx.to_gl(node.world()))     # camera . world(node)
+        glMultMatrixf(mx.to_gl(world))            # camera . world(node)
         draw_figure(node)
         glPopMatrix()                             # back to the camera matrix
     for child in node.children:
-        draw(child, draw_figure)
+        draw(child, draw_figure, world)
