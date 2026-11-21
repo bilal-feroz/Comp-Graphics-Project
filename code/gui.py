@@ -26,12 +26,14 @@ How the GUI talks to the rest of the program:
 """
 import math
 import re
+import time
 import tkinter as tk
 from tkinter import colorchooser
 from tkinter import ttk
 
 from OpenGL.GL import glClearColor
 from pyopengltk import OpenGLFrame
+PANEL_REFRESH_MS = 200        # status bar + matrix panel: 5 times a second
 MESSAGE_SHOW_MS = 6000
 
 
@@ -224,6 +226,9 @@ class MainWindow:
         self.app = app
         self.selector_nodes = []          # node for each line of the dropdown
         self.shown_view = app.view        # which view the notebook tab matches
+        self.frames = 0                   # frames drawn since fps_started
+        self.fps = 0.0
+        self.fps_started = time.perf_counter()
         self.message_job = None
         self.camera = None                # CameraControls, created with the camera tab
         # Fit the window on the screen (lab PCs and laptops differ).
@@ -238,6 +243,7 @@ class MainWindow:
         self._build_tuning_section()
         self._build_camera_section()
         self.refresh_selector()
+        self._refresh_panels()            # starts the 5-times-a-second refresh
 
     # ------------------------------------------------------------------ layout
 
@@ -253,6 +259,13 @@ class MainWindow:
 
         status = ttk.Frame(self.root, relief="sunken", padding=(4, 1))
         status.grid(row=2, column=0, columnspan=2, sticky="ew")
+        self.status_time = ttk.Label(status, width=14)
+        self.status_fps = ttk.Label(status, width=9)
+        self.status_view = ttk.Label(status, width=16)
+        self.status_selected = ttk.Label(status, width=28)
+        for label in (self.status_time, self.status_fps, self.status_view, self.status_selected):
+            label.pack(side="left")
+            ttk.Separator(status, orient="vertical").pack(side="left", fill="y", padx=4)
         self.status_message = ttk.Label(status, anchor="w")
         self.status_message.pack(side="left", fill="x", expand=True)
 
@@ -377,6 +390,7 @@ class MainWindow:
 
     def count_frame(self):
         """App.tick calls this once per drawn frame (for the FPS counter)."""
+        self.frames += 1
 
     def show_message(self, text, error=False):
         """Show a message in the status bar for a few seconds (errors in red)."""
@@ -447,3 +461,23 @@ class MainWindow:
     def _visible_changed(self):
         if self.app.selected is not None:
             self.app.selected.visible = self.visible_var.get()
+
+    # ------------------------------------------------------------------ status bar + matrix panel
+
+    def _refresh_panels(self):
+        """Every 200 ms: FPS, status bar and the world-matrix panel."""
+        try:
+            now = time.perf_counter()
+            if now - self.fps_started >= 0.5:
+                self.fps = self.frames / (now - self.fps_started)
+                self.frames, self.fps_started = 0, now
+            node = self.app.selected
+            self.status_time.config(text="Time %7.1f s" % self.app.elapsed)
+            self.status_fps.config(text="FPS %3.0f" % self.fps)
+            self.status_view.config(text="View %s%s" % (self.app.view,
+                                                        "  PAUSED" if self.app.paused else ""))
+            self.status_selected.config(text="Selected: %s" % (node.name if node else "none"))
+        except Exception as error:
+            self.app.report_error(error)
+        finally:
+            self.root.after(PANEL_REFRESH_MS, self._refresh_panels)
