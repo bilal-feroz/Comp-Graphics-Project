@@ -211,12 +211,22 @@ class MainWindow:
         self.speed = SliderRow(box, 1, "Speed (x)", 0.1, 3.0, self.app.speed,
                                self.app.set_speed, self.app.report_error)
 
+        ttk.Label(box, text="View").grid(row=2, column=0, sticky="w")
+        self.view_var = tk.StringVar(value=self.app.view)
+        views = ttk.Frame(box)
+        views.grid(row=2, column=1, columnspan=2, sticky="w")
+        for name in ("2D", "3D"):
+            ttk.Radiobutton(views, text=name, value=name, variable=self.view_var, takefocus=False,
+                            command=self.safe(lambda: self.app.set_view(self.view_var.get()))
+                            ).pack(side="left", padx=(0, 12))
+
     # ------------------------------------------------------------------ App -> GUI
 
     def refresh_controls(self):
         """Make the widgets show the App state (after a key press, reset, ...)."""
         self.pause_button.config(text="Play" if self.app.paused else "Pause")
         self.speed.set(self.app.speed)
+        self.view_var.set(self.app.view)
 
     def refresh_selector(self):
         """Fill the dropdown from scene.all_nodes() of the current view.
