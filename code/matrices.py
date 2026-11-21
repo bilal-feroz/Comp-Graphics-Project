@@ -71,3 +71,16 @@ def apply2(M, vertices):
         result.append((M[0][0] * x + M[0][1] * y + M[0][2],
                        M[1][0] * x + M[1][1] * y + M[1][2]))
     return result
+
+
+def compose(*matrices):
+    """Multiply several matrices left to right:  compose(T, R, S) = T . R . S
+
+    Lets us write a transformation plan exactly as it appears in the report,
+    e.g.  light = T(ufo) . R(heading) . R(w t) . T(r, 0).
+    The RIGHTMOST matrix is the one applied to the point first.
+    """
+    result = matrices[0]
+    for M in matrices[1:]:
+        result = mul(result, M)
+    return result
