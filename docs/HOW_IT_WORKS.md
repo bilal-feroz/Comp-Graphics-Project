@@ -113,3 +113,62 @@ R(θ)  =  | sin θ   cos θ  0 |    S(sx,sy) = | 0  sy 0 |
   to the 4th column, z unchanged). `to_gl(translate3(1,2,3))` has 1, 2, 3 at indices 12, 13, 14.
 * **No `glTranslatef / glRotatef / glScalef` on objects.** OpenGL matrix calls are only
   used for the camera and projection (`glOrtho`, `gluPerspective`, `gluLookAt`).
+
+## Scene graph (`scene.py`)
+
+```python
+class Node:
+    name, figure, color, dim (2 or 3), visible, parent, children
+    tx, ty, tz, angle, rx, ry, rz, sx, sy, sz      # local transform (degrees)
+    def local(self):  T · R · S        (2D: 3x3,  3D: T · Rz · Ry · Rx · S, 4x4)
+    def world(self):  parent.world() · local()     (root: just local())
+    def add(child), find(name), all_nodes(), depth()
+```
+
+**The key rule:** `world(node) = world(parent) · local(node)`. Change a parent and every
+child changes with it. The unit test `test_child_follows_parent` checks this: moving the
+UFO by (4, -1) moves its light by exactly (4, -1).
+
+The 2D scene graph (planned final version; the starred nodes are already in the placeholder):
+
+```mermaid
+graph TD
+    world[world *] --> frame[cabinet_frame *]
+    world --> stars[starfield]
+    world --> walls[walls]
+    world --> bricks[bricks group *]
+    bricks --> b[brick_0_0 ... brick_4_9 *  50 bricks]
+    world --> paddle[paddle *]
+    world --> ball[ball *]
+    world --> score[score digits]
+    world --> lives[lives hearts]
+    world --> joy[joystick base]
+    joy --> stick[stick]
+    stick --> knob[knob]
+    world --> buttons[buttons]
+    world --> ufo[ufo *]
+    ufo --> ring[ufo_light_ring *]
+    ring --> l0[ufo_light_0..3 *]
+    world --> power[power-up capsule]
+```
+
+Transformation plan for the UFO light (what the hierarchy computes for us):
+
+```
+world(light_i) = world(ufo) · local(ring) · local(light_i)
+               = T(ufo) · R(heading)   ·   R(ω t)     ·   T(r cos 90°i, r sin 90°i)
+```
+
+**Draw traversal** (`scene.draw`): depth-first, parent before children. For each visible
+node with a figure:
+
+```
+glPushMatrix()                      # save the camera matrix
+glMultMatrixf(to_gl(world))         # camera · world(node)
+draw_figure(node)                   # vertices in MODEL coordinates only
+glPopMatrix()                       # restore the camera matrix
+```
+
+A hidden node skips its whole subtree. The traversal passes the parent's world matrix down,
+so each node needs one multiplication (`parent_world · local`) instead of rebuilding the
+chain up to the root. The result is the same as `node.world()`, just faster.
