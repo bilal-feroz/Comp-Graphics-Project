@@ -164,6 +164,7 @@ class MainWindow:
     def __init__(self, root, app):
         self.root = root
         self.app = app
+        self.selector_nodes = []          # node for each line of the dropdown
         self.message_job = None
         self.camera = None                # CameraControls, created with the camera tab
         # Fit the window on the screen (lab PCs and laptops differ).
@@ -174,6 +175,8 @@ class MainWindow:
         root.report_callback_exception = self._tk_error    # last safety net
         self._build_layout()
         self._build_simulation_section()
+        self._build_selection_section()
+        self.refresh_selector()
 
     # ------------------------------------------------------------------ layout
 
@@ -220,6 +223,13 @@ class MainWindow:
                             command=self.safe(lambda: self.app.set_view(self.view_var.get()))
                             ).pack(side="left", padx=(0, 12))
 
+    def _build_selection_section(self):
+        box = self._section("Selected object")
+        ttk.Label(box, text="Object").grid(row=0, column=0, sticky="w")
+        self.selector = ttk.Combobox(box, state="readonly", width=26, height=20)
+        self.selector.grid(row=0, column=1, columnspan=2, sticky="ew", pady=(0, 4))
+        self.selector.bind("<<ComboboxSelected>>", self.safe(self._selector_changed))
+
     # ------------------------------------------------------------------ App -> GUI
 
     def refresh_controls(self):
@@ -231,9 +241,16 @@ class MainWindow:
     def refresh_selector(self):
         """Fill the dropdown from scene.all_nodes() of the current view.
         Children are indented under their parent, so the list shows the tree."""
+        self.selector_nodes = self.app.current_scene().all_nodes()
+        self.selector["values"] = ["   " * node.depth() + node.name for node in self.selector_nodes]
+        self.show_selection(self.app.selected)
 
     def show_selection(self, node):
         """Load the selected node into the controls (App.select calls this)."""
+        if node in self.selector_nodes:
+            self.selector.current(self.selector_nodes.index(node))
+        else:
+            self.selector.set("")
 
     def count_frame(self):
         """App.tick calls this once per drawn frame (for the FPS counter)."""
@@ -262,3 +279,12 @@ class MainWindow:
     def _tk_error(self, exc_type, error, traceback_):
         """Tk calls this for any callback error we did not catch ourselves."""
         self.app.report_error(error)
+
+    # ------------------------------------------------------------------ selected object
+
+    def _selector_changed(self, _event=None):
+        index = self.selector.current()
+        if 0 <= index < len(self.selector_nodes):
+            self.app.select(self.selector_nodes[index])
+        self.selector.selection_clear()
+        self.canvas.focus_set()           # so the keyboard shortcuts work again
