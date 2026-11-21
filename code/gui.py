@@ -24,6 +24,7 @@ How the GUI talks to the rest of the program:
   * every callback goes through safe(): an exception becomes a red message
     in the status bar instead of a crash.
 """
+import math
 import re
 import tkinter as tk
 from tkinter import ttk
@@ -61,6 +62,16 @@ def parse_number(text, low, high):
     if value != value or value in (float("inf"), float("-inf")):
         raise ValueError("'%s' is not a finite number" % text)
     return clamp(value, low, high)
+
+
+def wrap_degrees(angle):
+    """Any angle -> the same direction in (-180, 180], for the rotation slider."""
+    angle = math.fmod(angle, 360.0)
+    if angle > 180.0:
+        angle -= 360.0
+    elif angle <= -180.0:
+        angle += 360.0
+    return angle
 
 
 # ======================================================================= widgets
@@ -229,6 +240,10 @@ class MainWindow:
         self.selector = ttk.Combobox(box, state="readonly", width=26, height=20)
         self.selector.grid(row=0, column=1, columnspan=2, sticky="ew", pady=(0, 4))
         self.selector.bind("<<ComboboxSelected>>", self.safe(self._selector_changed))
+        self.size = SliderRow(box, 1, "Size (scale)", 0.1, 3.0, 1.0,
+                              self._size_changed, self.app.report_error)
+        self.rotation = SliderRow(box, 2, "Rotation (deg)", -180, 180, 0,
+                                  self._rotation_changed, self.app.report_error, digits=0)
 
     # ------------------------------------------------------------------ App -> GUI
 
@@ -251,6 +266,13 @@ class MainWindow:
             self.selector.current(self.selector_nodes.index(node))
         else:
             self.selector.set("")
+        enabled = node is not None
+        for slider in (self.size, self.rotation):
+            slider.set_enabled(enabled)
+        if node is None:
+            return
+        self.size.set(node.sx)
+        self.rotation.set(wrap_degrees(node.angle if node.dim == 2 else node.ry))
 
     def count_frame(self):
         """App.tick calls this once per drawn frame (for the FPS counter)."""
@@ -288,3 +310,19 @@ class MainWindow:
             self.app.select(self.selector_nodes[index])
         self.selector.selection_clear()
         self.canvas.focus_set()           # so the keyboard shortcuts work again
+
+    def _size_changed(self, value):
+        node = self.app.selected
+        if node is not None:
+            node.sx = node.sy = value
+            if node.dim == 3:
+                node.sz = value
+
+    def _rotation_changed(self, value):
+        node = self.app.selected
+        if node is None:
+            return
+        if node.dim == 2:
+            node.angle = value
+        else:
+            node.ry = value
