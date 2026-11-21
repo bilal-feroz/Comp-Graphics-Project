@@ -89,6 +89,51 @@ class App:
         if self.gui is not None:
             self.gui.show_message(message, error=True)
 
+    # ------------------------------------------------------------------ actions (buttons + keys)
+
+    def toggle_pause(self):
+        """Space / Play-Pause button."""
+        self.paused = not self.paused
+        self.gui.refresh_controls()
+
+    def reset(self):
+        """R / Reset button: new game, fresh scene graphs, time back to 0."""
+        name = self.selected.name if self.selected else None
+        self.game.reset()
+        self.scene2d = render2d.build_scene()
+        self.scene3d = render3d.build_scene()
+        render2d.sync(self.scene2d, self.game, 0.0)
+        render3d.sync(self.scene3d, self.game, 0.0)
+        self.elapsed = 0.0
+        self.selected = self.current_scene().find(name) if name else None
+        self.gui.refresh_selector()
+        self.gui.refresh_controls()
+        self.gui.show_message("Reset")
+
+    def set_speed(self, value):
+        """Speed slider (the GUI has already clamped it to 0.1 .. 3)."""
+        self.speed = float(value)
+
+    def set_view(self, view):
+        """2D / 3D radio buttons. Keeps the selection if the other view has a
+        node with the same name (ball, paddle, bricks, ...)."""
+        if view not in ("2D", "3D"):
+            raise ValueError("unknown view %r" % view)
+        name = self.selected.name if self.selected else None
+        self.view = view
+        self.selected = self.current_scene().find(name) if name else None
+        self.gui.refresh_selector()
+        self.gui.refresh_controls()
+
+    def toggle_view(self):
+        """V key."""
+        self.set_view("3D" if self.view == "2D" else "2D")
+
+    def select(self, node):
+        """Object selector or a click on the canvas."""
+        self.selected = node
+        self.gui.show_selection(node)
+
 
 def main():
     root = tk.Tk()
