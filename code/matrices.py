@@ -104,3 +104,29 @@ def inverse2(M):
     return [[ia, ib, -(ia * tx + ib * ty)],
             [ic, id_, -(ic * tx + id_ * ty)],
             [0.0, 0.0, 1.0]]
+
+# ======================================================================= 3D (4x4)
+
+
+def identity4():
+    """The 4x4 identity matrix."""
+    return [[1.0, 0.0, 0.0, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0]]
+
+
+def translate3(tx, ty, tz):
+    """Move by (tx, ty, tz). The translation sits in the 4th column."""
+    return [[1.0, 0.0, 0.0, float(tx)],
+            [0.0, 1.0, 0.0, float(ty)],
+            [0.0, 0.0, 1.0, float(tz)],
+            [0.0, 0.0, 0.0, 1.0]]
+
+
+def scale3(sx, sy, sz):
+    """Scale about the origin along x, y and z."""
+    return [[float(sx), 0.0, 0.0, 0.0],
+            [0.0, float(sy), 0.0, 0.0],
+            [0.0, 0.0, float(sz), 0.0],
+            [0.0, 0.0, 0.0, 1.0]]
