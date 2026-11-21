@@ -38,3 +38,17 @@ class TestMatrices(unittest.TestCase):
     def test_rotate2_90_degrees_maps_x_axis_to_y_axis(self):
         (x, y), = mx.apply2(mx.rotate2(math.radians(90)), [(1, 0)])
         self.assertTrue(close((x, y), (0, 1)))
+
+    def test_trs_order_scales_then_rotates_then_translates(self):
+        M = mx.compose(mx.translate2(5, 0), mx.rotate2(math.radians(90)), mx.scale2(2, 2))
+        # (1, 0) --scale 2--> (2, 0) --rotate 90--> (0, 2) --move (5, 0)--> (5, 2)
+        (x, y), = mx.apply2(M, [(1, 0)])
+        self.assertTrue(close((x, y), (5, 2)))
+
+    def test_inverse2_undoes_the_transform(self):
+        M = mx.compose(mx.translate2(3, -2), mx.rotate2(math.radians(30)), mx.scale2(2, 0.5))
+        self.assertMatrixClose(mx.mul(mx.inverse2(M), M), mx.identity3())
+
+    def test_inverse2_refuses_a_zero_scale(self):
+        with self.assertRaises(ValueError):
+            mx.inverse2(mx.scale2(0, 1))
