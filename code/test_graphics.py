@@ -144,3 +144,61 @@ class TestGuiValidation(unittest.TestCase):
         self.assertEqual(self.gui.wrap_degrees(270), -90)
         self.assertEqual(self.gui.wrap_degrees(-180), 180)
         self.assertEqual(self.gui.wrap_degrees(720), 0)
+
+
+# ======================================================================= Member 2: raster + 2D
+# TODO(M2): replace the skip markers with the real tests.
+
+class TestRaster(unittest.TestCase):
+
+    @unittest.skip("TODO(M2): Bresenham (0,0)->(5,2) gives (0,0) (1,0) (2,1) (3,1) (4,2) (5,2)")
+    def test_bresenham_0_0_to_5_2(self):
+        pass
+
+    @unittest.skip("TODO(M2): every midpoint-circle point lies within 1 pixel of radius r")
+    def test_midpoint_circle_points_on_radius(self):
+        pass
+
+    @unittest.skip("TODO(M2): screen-to-world maps the window centre to (0, 0)")
+    def test_screen_centre_is_world_origin(self):
+        pass
+
+
+# ======================================================================= Member 3: game
+# TODO(M3): replace the skip markers with the real tests.
+
+class TestGame(unittest.TestCase):
+
+    @unittest.skip("TODO(M3): a ball moving right at the right wall ends with negative vx")
+    def test_ball_bounces_off_right_wall(self):
+        pass
+
+    @unittest.skip("TODO(M3): hitting a brick removes it and adds 10 to the score")
+    def test_brick_hit_scores_10(self):
+        pass
+
+    @unittest.skip("TODO(M3): the UFO heading equals atan2(vy, vx) of its velocity")
+    def test_ufo_faces_its_direction(self):
+        pass
+
+
+# ======================================================================= Member 4: 3D
+# TODO(M4): replace the skip markers with the real tests.
+
+class TestFigures3D(unittest.TestCase):
+
+    @unittest.skip("TODO(M4): every face index is in range and every face has 3+ vertices")
+    def test_face_tables_are_valid(self):
+        pass
+
+    @unittest.skip("TODO(M4): every brick normal has length 1 and points away from the centre")
+    def test_brick_normals_point_outwards(self):
+        pass
+
+    @unittest.skip("TODO(M4): the orbiting star stays at distance r from the trophy axis")
+    def test_star_orbit_radius(self):
+        pass
+
+
+if __name__ == "__main__":
+    unittest.main()
