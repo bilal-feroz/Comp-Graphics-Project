@@ -27,6 +27,7 @@ How the GUI talks to the rest of the program:
 import math
 import re
 import tkinter as tk
+from tkinter import colorchooser
 from tkinter import ttk
 
 from OpenGL.GL import glClearColor
@@ -72,6 +73,12 @@ def wrap_degrees(angle):
     elif angle <= -180.0:
         angle += 360.0
     return angle
+
+
+def color_to_hex(color):
+    """(r, g, b) with floats 0..1 -> '#rrggbb' for Tk widgets."""
+    r, g, b = (int(round(clamp(c, 0.0, 1.0) * 255)) for c in color)
+    return "#%02x%02x%02x" % (r, g, b)
 
 
 # ======================================================================= widgets
@@ -244,6 +251,19 @@ class MainWindow:
                               self._size_changed, self.app.report_error)
         self.rotation = SliderRow(box, 2, "Rotation (deg)", -180, 180, 0,
                                   self._rotation_changed, self.app.report_error, digits=0)
+        row = ttk.Frame(box)
+        row.grid(row=3, column=0, columnspan=3, sticky="ew", pady=(4, 0))
+        ttk.Label(row, text="Colour").pack(side="left")
+        self.swatch = tk.Label(row, width=4, relief="solid", bd=1)
+        self.swatch.pack(side="left", padx=6)
+        self.colour_button = ttk.Button(row, text="Pick colour...", takefocus=False,
+                                        command=self.safe(self._pick_colour))
+        self.colour_button.pack(side="left")
+        self.visible_var = tk.BooleanVar(value=True)
+        self.visible_check = ttk.Checkbutton(row, text="Visible", variable=self.visible_var,
+                                             takefocus=False,
+                                             command=self.safe(self._visible_changed))
+        self.visible_check.pack(side="right")
 
     # ------------------------------------------------------------------ App -> GUI
 
@@ -269,10 +289,15 @@ class MainWindow:
         enabled = node is not None
         for slider in (self.size, self.rotation):
             slider.set_enabled(enabled)
+        for widget in (self.colour_button, self.visible_check):
+            widget.state(["!disabled"] if enabled else ["disabled"])
         if node is None:
+            self.swatch.config(bg=self.root.cget("bg"))
             return
         self.size.set(node.sx)
         self.rotation.set(wrap_degrees(node.angle if node.dim == 2 else node.ry))
+        self.swatch.config(bg=color_to_hex(node.color))
+        self.visible_var.set(node.visible)
 
     def count_frame(self):
         """App.tick calls this once per drawn frame (for the FPS counter)."""
@@ -326,3 +351,23 @@ class MainWindow:
             node.angle = value
         else:
             node.ry = value
+
+    def _pick_colour(self):
+        node = self.app.selected
+        if node is None:
+            raise ValueError("select an object first")
+        rgb, hex_code = colorchooser.askcolor(color=color_to_hex(node.color), parent=self.root,
+                                              title="Colour of " + node.name)
+        if rgb is None:                   # dialog cancelled
+            return
+        colour = tuple(int(c) / 255.0 for c in rgb)
+        # A group node has no figure of its own, so colour its whole subtree.
+        targets = node.all_nodes() if node.figure is None else [node]
+        for target in targets:
+            target.color = colour
+        self.swatch.config(bg=hex_code)
+        self.canvas.focus_set()
+
+    def _visible_changed(self):
+        if self.app.selected is not None:
+            self.app.selected.visible = self.visible_var.get()
