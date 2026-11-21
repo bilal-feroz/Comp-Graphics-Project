@@ -251,3 +251,16 @@ Run from `code/`: `python -m unittest -v`. Member 1's tests:
 * GUI validation: partial numbers, clamping, rejecting `''`, `'-'`, `nan`, `inf`, angle wrapping
 
 GitHub Actions runs the same tests on Windows for every push and pull request.
+
+## Performance (a challenge worth mentioning)
+
+The first version ran at about 20 FPS. Three fixes brought it to about 60:
+
+1. **Windows timer resolution.** By default Windows timers tick every 15.6 ms, so
+   `after(16)` really waited about 31 ms. `timeBeginPeriod(1)` asks for 1 ms timers, and
+   `tick` now waits only for what is left of the 16 ms frame.
+2. **PyOpenGL error checking.** PyOpenGL calls `glGetError()` after every `gl*` call.
+   We turn that off (`OpenGL.ERROR_CHECKING = False`), which roughly halves the cost
+   of immediate-mode drawing.
+3. **Fewer matrix products.** The draw traversal passes the parent's world matrix down
+   instead of recomputing the chain from the root for each of the 50 bricks.
