@@ -10,6 +10,7 @@ import math
 import unittest
 
 import matrices as mx
+from scene import Node
 
 
 def close(a, b, places=9):
@@ -66,3 +67,50 @@ class TestMatrices(unittest.TestCase):
     def test_rot_y_90_degrees_maps_z_axis_to_x_axis(self):
         (point,) = mx.apply3(mx.rot_y(math.radians(90)), [(0, 0, 1)])
         self.assertTrue(close(point, (1, 0, 0)))
+
+
+# ======================================================================= Member 1: scene graph
+
+class TestSceneGraph(unittest.TestCase):
+
+    @staticmethod
+    def origin_in_world(node):
+        """Where the node's model origin (0, 0) ends up in the world."""
+        return mx.apply2(node.world(), [(0, 0)])[0]
+
+    def test_child_follows_parent(self):
+        ufo = Node("ufo", tx=2, ty=3)
+        light = ufo.add(Node("light", tx=1))
+        before = self.origin_in_world(light)              # (3, 3)
+        ufo.tx += 4                                       # move only the parent
+        ufo.ty -= 1
+        after = self.origin_in_world(light)
+        self.assertTrue(close((after[0] - before[0], after[1] - before[1]), (4, -1)))
+
+    def test_child_orbits_when_parent_rotates(self):
+        ring = Node("ring", angle=90)
+        light = ring.add(Node("light", tx=1))
+        self.assertTrue(close(self.origin_in_world(light), (0, 1)))
+
+    def test_world_of_root_is_its_local(self):
+        root = Node("world", tx=1, angle=30, sx=2)
+        self.assertEqual(root.world(), root.local())
+
+    def test_child_follows_parent_in_3d(self):
+        trophy = Node("trophy", dim=3, tx=1, ty=2, tz=3)
+        star = trophy.add(Node("star", dim=3, tx=2))
+        (point,) = mx.apply3(star.world(), [(0, 0, 0)])
+        self.assertTrue(close(point, (3, 2, 3)))
+
+    def test_find_and_all_nodes_walk_the_tree_parent_first(self):
+        root = Node("world")
+        a = root.add(Node("a"))
+        a.add(Node("a1"))
+        root.add(Node("b"))
+        self.assertEqual([n.name for n in root.all_nodes()], ["world", "a", "a1", "b"])
+        self.assertIs(root.find("a1"), a.children[0])
+        self.assertIsNone(root.find("missing"))
+
+    def test_add_rejects_mixing_2d_and_3d(self):
+        with self.assertRaises(ValueError):
+            Node("world").add(Node("cube", dim=3))
