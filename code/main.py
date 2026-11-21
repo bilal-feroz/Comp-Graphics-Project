@@ -12,9 +12,17 @@ One frame (Tk calls tick() again about every 16 ms with after()):
 There is no sleep() and no busy-wait loop: the Tk event loop stays free for
 the mouse and keyboard between frames.
 """
+import sys
 import time
 import tkinter as tk
 import traceback
+
+import OpenGL
+
+# PyOpenGL normally calls glGetError() after EVERY gl call. That doubles the
+# cost of immediate-mode drawing, so it is switched off (set True to debug).
+# It must be set before any OpenGL module is imported.
+OpenGL.ERROR_CHECKING = False
 
 import game as game_module
 import render2d
@@ -49,8 +57,8 @@ class App:
 
     def tick(self):
         """One frame. Always schedules the next one, even after an error."""
+        now = time.perf_counter()
         try:
-            now = time.perf_counter()
             dt = min(now - self.last_time, MAX_DT)
             self.last_time = now
             if not self.paused:
@@ -60,7 +68,9 @@ class App:
         except Exception as error:
             self.report_error(error)
         finally:
-            self.root.after(FRAME_MS, self.tick)
+            # Wait only for what is left of this frame's 16 ms.
+            used_ms = (time.perf_counter() - now) * 1000.0
+            self.root.after(max(1, int(FRAME_MS - used_ms)), self.tick)
 
     def step(self, dt):
         """Move the world forward by dt (already scaled by the speed slider)."""
@@ -136,6 +146,11 @@ class App:
 
 
 def main():
+    if sys.platform == "win32":
+        # Windows timers tick every 15.6 ms by default, so after(16) really
+        # waits about 31 ms (30 FPS). Ask Windows for 1 ms timers while we run.
+        import ctypes
+        ctypes.windll.winmm.timeBeginPeriod(1)
     root = tk.Tk()
     root.title("Arcade Breakout - OpenGL Animated World")
     App(root)
