@@ -114,3 +114,33 @@ class TestSceneGraph(unittest.TestCase):
     def test_add_rejects_mixing_2d_and_3d(self):
         with self.assertRaises(ValueError):
             Node("world").add(Node("cube", dim=3))
+
+
+# ======================================================================= Member 1: GUI input validation
+
+class TestGuiValidation(unittest.TestCase):
+
+    def setUp(self):
+        import gui                       # imported here: only these tests need Tk
+        self.gui = gui
+
+    def test_entry_accepts_partial_numbers_and_refuses_letters(self):
+        for text in ("", "-", "1.", "-0.5", "12"):
+            self.assertTrue(self.gui.is_partial_number(text), text)
+        for text in ("abc", "1e5", "1-", "--1", "1.2.3"):
+            self.assertFalse(self.gui.is_partial_number(text), text)
+
+    def test_parse_number_clamps_to_the_slider_range(self):
+        self.assertEqual(self.gui.parse_number("5", 0.1, 3.0), 3.0)
+        self.assertEqual(self.gui.parse_number("-2", 0.1, 3.0), 0.1)
+        self.assertEqual(self.gui.parse_number("1.5", 0.1, 3.0), 1.5)
+
+    def test_parse_number_rejects_text_that_is_not_a_number(self):
+        for text in ("", "-", "nan", "inf"):
+            with self.assertRaises(ValueError):
+                self.gui.parse_number(text, 0, 1)
+
+    def test_wrap_degrees_keeps_the_rotation_slider_in_range(self):
+        self.assertEqual(self.gui.wrap_degrees(270), -90)
+        self.assertEqual(self.gui.wrap_degrees(-180), 180)
+        self.assertEqual(self.gui.wrap_degrees(720), 0)
