@@ -77,3 +77,39 @@ sequenceDiagram
   finished picture in one go, so it never flickers.
 * **The `try / finally` in `tick`** always schedules the next frame, so one bad frame
   shows an error in the status bar instead of freezing the animation.
+
+## Matrices (`matrices.py`)
+
+Conventions:
+
+* A matrix is a list of rows (`M[row][col]`). Points are column vectors: `p' = M · p`.
+* **Homogeneous coordinates.** A 2D point `(x, y)` is used as `(x, y, 1)`, which is why a
+  translation can be a matrix:
+
+```
+            | 1 0 tx |   | x |   | x + tx |
+T(tx,ty) =  | 0 1 ty | · | y | = | y + ty |
+            | 0 0 1  |   | 1 |   |   1    |
+
+         | cos θ  -sin θ  0 |              | sx 0  0 |
+R(θ)  =  | sin θ   cos θ  0 |    S(sx,sy) = | 0  sy 0 |
+         |   0       0    1 |              | 0  0  1 |
+```
+
+* **`mul(A, B)`**: entry `(i, j)` = row `i` of A · column `j` of B. Order matters: `A · B`
+  applies **B first**.
+* **`compose(T, R, S)` = `T · R · S`**, read right to left: *scale, then rotate, then move*.
+  Worked example (it is also a unit test): the point `(1, 0)` under `T(5,0) · R(90°) · S(2,2)`
+  goes `(1,0) → S → (2,0) → R → (0,2) → T → (5,2)`.
+* **Why `T·R·S` and not `R·T`?** With `T` first and `R` second (`R · T`), the object
+  is moved and then swung around the origin, so it **orbits**. We use exactly that on
+  purpose for orbiting children: the UFO's light ring is rotated, and each light sits at
+  `T(r, 0)` inside it.
+* **`inverse2`** undoes a 2D transform (1/det formula for the 2×2 part, then undo the
+  translation). M2 uses it for click-to-select: it takes a mouse point in world
+  coordinates back into the figure's model coordinates.
+* **`to_gl(M)`**: `glMultMatrixf` wants 16 floats in **column-major** order, so we read our
+  row-major matrix column by column. A 2D 3×3 is first embedded in 4×4 (translation goes
+  to the 4th column, z unchanged). `to_gl(translate3(1,2,3))` has 1, 2, 3 at indices 12, 13, 14.
+* **No `glTranslatef / glRotatef / glScalef` on objects.** OpenGL matrix calls are only
+  used for the camera and projection (`glOrtho`, `gluPerspective`, `gluLookAt`).
