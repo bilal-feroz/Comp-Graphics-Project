@@ -130,3 +130,41 @@ def scale3(sx, sy, sz):
             [0.0, float(sy), 0.0, 0.0],
             [0.0, 0.0, float(sz), 0.0],
             [0.0, 0.0, 0.0, 1.0]]
+
+
+def rot_x(theta):
+    """Rotate about the x axis (y turns towards z), theta in radians."""
+    c, s = math.cos(theta), math.sin(theta)
+    return [[1.0, 0.0, 0.0, 0.0],
+            [0.0, c, -s, 0.0],
+            [0.0, s, c, 0.0],
+            [0.0, 0.0, 0.0, 1.0]]
+
+
+def rot_y(theta):
+    """Rotate about the y axis (z turns towards x), theta in radians."""
+    c, s = math.cos(theta), math.sin(theta)
+    return [[c, 0.0, s, 0.0],
+            [0.0, 1.0, 0.0, 0.0],
+            [-s, 0.0, c, 0.0],
+            [0.0, 0.0, 0.0, 1.0]]
+
+
+def rot_z(theta):
+    """Rotate about the z axis (x turns towards y), theta in radians.
+    This is rotate2 with an untouched z row and column."""
+    c, s = math.cos(theta), math.sin(theta)
+    return [[c, -s, 0.0, 0.0],
+            [s, c, 0.0, 0.0],
+            [0.0, 0.0, 1.0, 0.0],
+            [0.0, 0.0, 0.0, 1.0]]
+
+
+def apply3(M, vertices):
+    """Transform a list of 3D points: each (x, y, z) becomes M . (x, y, z, 1)."""
+    result = []
+    for x, y, z in vertices:
+        result.append((M[0][0] * x + M[0][1] * y + M[0][2] * z + M[0][3],
+                       M[1][0] * x + M[1][1] * y + M[1][2] * z + M[1][3],
+                       M[2][0] * x + M[2][1] * y + M[2][2] * z + M[2][3]))
+    return result
