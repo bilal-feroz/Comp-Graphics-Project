@@ -172,3 +172,44 @@ glPopMatrix()                       # restore the camera matrix
 A hidden node skips its whole subtree. The traversal passes the parent's world matrix down,
 so each node needs one multiplication (`parent_world · local`) instead of rebuilding the
 chain up to the root. The result is the same as `node.world()`, just faster.
+
+## GUI (`gui.py`)
+
+```
++--------------------------------+------------------------+
+|                                | Simulation             |  Play/Pause, Reset, Speed, 2D/3D
+|        OpenGL canvas           | Selected object        |  Object, Size, Rotation, Colour, Visible
+|        (pyopengltk)            | [Game tuning|Camera]   |  ball speed, UFO orbit, paddle | yaw, pitch, distance
+|                                | World matrix           |  local and world of the selection
++--------------------------------+------------------------+
+| help line (always visible)                              |
+| Time | FPS | View | Selected | messages                 |
++---------------------------------------------------------+
+```
+
+| Control | What it changes |
+|---|---|
+| Play/Pause, Space | `App.paused`, so `update` is skipped |
+| Reset, R | `game.reset()`, both scene graphs rebuilt, time back to 0 |
+| Speed slider | `App.speed`, which multiplies `dt` |
+| 2D / 3D, V | `App.view`, so the canvas draws the other scene graph; the selection is kept by name |
+| Object dropdown | `App.selected`, filled from `scene.all_nodes()` and indented by `depth()` |
+| Size | `node.sx = node.sy (= node.sz)`, the **S** of the node's `T·R·S` |
+| Rotation | `node.angle` (2D) or `node.ry` (3D), the **R** of `T·R·S` |
+| Colour | `node.color` through `tkinter.colorchooser` (a group colours its subtree) |
+| Visible | `node.visible`, which hides the subtree |
+| Game tuning | `game.ball_speed`, `game.ufo_orbit_speed`, `game.paddle_width` |
+| Camera sliders | `CameraControls.yaw / pitch / distance`, which `render3d` reads every frame |
+| Matrix panel | shows `node.local()` and `node.world()` 5 times a second |
+| Click (2D) | `render2d.pick` → `App.select` (the dropdown follows) |
+| Drag / wheel (3D) | `render3d.on_drag / on_wheel` → `camera.set(...)` (the sliders follow) |
+| Left / Right, M | `game.paddle_input`, `game.toggle_attract()` |
+
+**"The program never crashes":**
+
+1. Sliders cannot leave their range. Typed numbers are clamped (`clamp`, `parse_number`).
+2. Entry boxes use a Tk `validatecommand` (`is_partial_number`), so letters are refused as you type.
+3. Every callback is wrapped by `safe()`. An exception becomes a red status-bar message.
+   `root.report_callback_exception` catches anything else, and `tick` always schedules
+   the next frame.
+4. Keyboard shortcuts are ignored while you type in an entry box, so typing "r" does not reset.
