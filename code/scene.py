@@ -18,6 +18,7 @@ the joystick knob stays on the end of the stick.
 import math
 
 import matrices as mx
+from OpenGL.GL import glMultMatrixf, glPopMatrix, glPushMatrix
 
 # The transform fields a Node accepts as keyword arguments,
 # e.g.  Node("paddle", figure, colour, ty=-6.5)
@@ -103,3 +104,22 @@ class Node:
     def depth(self):
         """0 for the root, 1 for its children, ... (used to indent the selector)."""
         return 0 if self.parent is None else self.parent.depth() + 1
+
+
+def draw(node, draw_figure):
+    """Draw traversal: visit every visible node depth-first and draw its
+    figure with its own world matrix.
+
+    draw_figure(node) is supplied by render2d / render3d. It only sends the
+    figure's MODEL-coordinate vertices; the matrix does all the placing.
+    A hidden node is skipped together with all of its children.
+    """
+    if not node.visible:
+        return
+    if node.figure is not None:
+        glPushMatrix()                            # remember the camera matrix
+        glMultMatrixf(mx.to_gl(node.world()))     # camera . world(node)
+        draw_figure(node)
+        glPopMatrix()                             # back to the camera matrix
+    for child in node.children:
+        draw(child, draw_figure)
