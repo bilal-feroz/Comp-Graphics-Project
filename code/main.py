@@ -27,6 +27,7 @@ OpenGL.ERROR_CHECKING = False
 
 import game as game_module
 import persist
+import hud2d
 import render2d
 import render3d
 from gui import MainWindow
@@ -86,6 +87,7 @@ class App:
         """Called by the canvas: draw the active view."""
         if self.view == "2D":
             render2d.draw(self.scene2d, width, height, self.selected)
+            hud2d.draw(self.game, width, height)   # score + stars with Member 2's raster algorithms
         else:
             render3d.draw(self.scene3d, width, height, self.gui.camera, self.selected)
 
