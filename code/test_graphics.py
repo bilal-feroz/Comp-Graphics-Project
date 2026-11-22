@@ -443,7 +443,6 @@ class TestPersist(unittest.TestCase):
 
 
 # ======================================================================= Member 4: 3D
-# TODO(M4): replace the skip markers with the real tests.
 
 class TestFigures3D(unittest.TestCase):
     """Member 4's 3D figures and orbit (tests added during integration; the code under test is unchanged)."""

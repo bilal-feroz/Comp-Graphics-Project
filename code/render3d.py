@@ -1,9 +1,17 @@
 """
 render3d.py - draws the 3D view.                                          [Member 4]
 
-PLACEHOLDER by Member 1 (lead): wireframe boxes and a fixed camera, so the
-2D/3D switch and the object selector can be tested. Member 4 replaces the
-TODOs but keeps these names, because main.py and gui.py call them:
+The same game as the 2D view, drawn in 3D:
+  * bevelled bricks and a trophy modelled from vertex and face tables
+    (figures.py), a star octahedron orbiting the spinning trophy (hierarchy:
+    the star is the trophy's child), and a gluSphere ball,
+  * gluPerspective(45 deg) projection with depth testing,
+  * GL_LIGHT0 with colour material and GL_NORMALIZE; each face's normal is the
+    cross product of two of its edges,
+  * an orbit camera built with gluLookAt from yaw, pitch and distance, moved by
+    mouse drag (orbit) and the wheel (zoom).
+
+Interface used by main.py and gui.py:
 
     build_scene()                                  -> root Node (dim=3)
     sync(root, game, dt)                           copy the game state onto the nodes
@@ -11,13 +19,8 @@ TODOs but keeps these names, because main.py and gui.py call them:
     on_drag(camera, dx, dy)                        mouse dragged by (dx, dy) pixels
     on_wheel(camera, steps)                        wheel: +1 = up / away, -1 = down
 
-`camera` is gui.CameraControls. Read camera.yaw, camera.pitch (degrees) and
-camera.distance (world units); change it with camera.set(yaw=..., pitch=...,
-distance=...) so the sliders follow the mouse.
-
-TODO(M4): bevelled bricks, trophy and star from vertex/face tables, gluSphere
-ball, GL_LIGHTING + normals + glMaterial, orbit camera from the sliders
-(gluLookAt), mouse orbit and zoom, trophy turntable and orbiting star.
+`camera` is gui.CameraControls: camera.yaw, camera.pitch (degrees) and
+camera.distance (world units); camera.set(...) keeps the sliders in step.
 """
 
 from OpenGL.GL import (GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT, GL_DEPTH_TEST,
