@@ -56,7 +56,26 @@ def box(w, h, d):
     return vertices, faces
 
 
-# TODO(M4): bevelled_brick()  12 vertices, 10 faces (team model 1)
-#           trophy()          profile of ~10 points turned around y in 16 steps (team model 2)
-#           star()            octahedron, 6 vertices, 8 faces
-#           face_normal(...)  cross product of two edges, normalised
+def star():
+    """A small 3D star made from an octahedron."""
+    vertices = [
+        (0.0, 0.2, 0.0),
+        (0.0, -0.2, 0.0),
+        (-0.2, 0.0, 0.0),
+        (0.2, 0.0, 0.0),
+        (0.0, 0.0, 0.2),
+        (0.0, 0.0, -0.2)
+    ]
+
+    faces = [
+        (0, 2, 4),
+        (0, 4, 3),
+        (0, 3, 5),
+        (0, 5, 2),
+        (1, 4, 2),
+        (1, 3, 4),
+        (1, 5, 3),
+        (1, 2, 5)
+    ]
+
+    return vertices, faces
