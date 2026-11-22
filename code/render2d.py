@@ -61,16 +61,21 @@ def build_scene():
         ring.add(Node("ufo_light_%d" % i, figures.ufo_light(0.12),
                       (1.0, 0.92, 0.2), tx=1.0 * math.cos(a), ty=0.35 * math.sin(a)))
 
-    # Lives Display (3 Hearts)
-    lives_group = root.add(Node("lives_display", tx=-8.2, ty=6.8))
-    for i in range(3):
+    # Lives Display (one heart per possible life; anim2d shows / animates them)
+    # Named "lives" so anim2d.ensure_nodes uses these hearts instead of adding its own.
+    lives_group = root.add(Node("lives", tx=-8.2, ty=6.8))
+    for i in range(rules.MAX_LIVES):
         lives_group.add(Node("heart_%d" % i, figures.heart(0.35), (0.95, 0.2, 0.3), tx=i * 0.8))
 
     # Arcade Controls Decoration (Bottom Bezel)
+    # Joystick uses anim2d's node names: joystick -> joystick_pivot -> stick -> knob,
+    # so the stick tilts about its bottom with the paddle and the knob is the
+    # stick's child. Same figures and positions as before when the tilt is 0.
     controls = root.add(Node("controls_panel", tx=0.0, ty=-7.1))
-    joy = controls.add(Node("joystick_base", figures.joystick_base(1.0, 0.3), (0.25, 0.25, 0.3), tx=-5.0))
-    joy.add(Node("joystick_stick", figures.joystick_stick(0.12, 0.5), (0.6, 0.6, 0.6), ty=0.35))
-    joy.add(Node("joystick_knob", figures.joystick_knob(0.2), (0.9, 0.15, 0.15), ty=0.6))
+    joy = controls.add(Node("joystick", figures.joystick_base(1.0, 0.3), (0.25, 0.25, 0.3), tx=-5.0))
+    pivot = joy.add(Node("joystick_pivot", ty=0.1))                     # bottom of the stick
+    stick = pivot.add(Node("joystick_stick", figures.joystick_stick(0.12, 0.5), (0.6, 0.6, 0.6), ty=0.25))
+    stick.add(Node("joystick_knob", figures.joystick_knob(0.2), (0.9, 0.15, 0.15), ty=0.25))
     controls.add(Node("button_1", figures.button(0.22), (0.9, 0.2, 0.2), tx=4.5))
     controls.add(Node("button_2", figures.button(0.22), (0.2, 0.8, 0.3), tx=5.2))
     controls.add(Node("button_3", figures.button(0.22), (0.2, 0.5, 0.9), tx=5.9))

@@ -348,13 +348,14 @@ class TestAnimation2D(unittest.TestCase):
         anim2d.sync(self.root, self.game)
 
     def test_joystick_knob_follows_the_tilted_stick(self):
-        """world(knob) = T(base) . T(pivot) . R(tilt) . T(0, 0.2) . T(0, 0.2)"""
+        """world(knob) = T(panel) . T(base) . T(pivot) . R(tilt) . T(0, 0.25) . T(0, 0.25)
+        (Member 2's joystick: base at (-5, -7.1), pivot 0.1 up, stick 0.25, knob 0.25.)"""
         self.game.joystick_tilt = -25.0
         self.anim2d.sync(self.root, self.game)
         knob = self.root.find("joystick_knob")
         (x, y), = mx.apply2(knob.world(), [(0, 0)])
         a = math.radians(-25.0)
-        expected = (-8.9 - 0.4 * math.sin(a), -7.38 + 0.1 + 0.4 * math.cos(a))
+        expected = (-5.0 - 0.5 * math.sin(a), -7.1 + 0.1 + 0.5 * math.cos(a))
         self.assertTrue(close((x, y), expected))
 
     def test_ufo_lights_ride_on_the_moving_ufo(self):
