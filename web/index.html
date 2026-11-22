@@ -1,0 +1,325 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Arcade Breakout</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Arcade Breakout: a team computer graphics project. Walk up to the arcade cabinet, press start and play the 2D and 3D game.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Layout: a full-screen 3D arcade room (three.js) as the intro, a fixed full-screen
+     game layer after the zoom, and the project notes below the fold.
+     One deliberate dark look (an arcade at night); every colour is set explicitly. */
+  :root {
+    --night: #07060f;        /* the arcade room */
+    --panel: #151a2c;
+    --line: #2a3150;
+    --ink: #eceef8;
+    --muted: #a2aac6;
+    --paddle: #33d6ff;       /* the paddle's cyan: the accent */
+    --coin: #ffd23f;         /* the trophy gold: START only */
+    --heart: #f2334d;
+    --ok: #4cd07d;
+    --warn: #ffb648;
+    --b1: #f44336; --b2: #ff9800; --b3: #ffeb3b; --b4: #4caf50; --b5: #2196f3;
+    --display: "Silkscreen", "Courier New", monospace;
+    --body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+    color-scheme: dark;
+  }
+  [hidden] { display: none !important; }
+  html, body { background: var(--night); color: var(--ink); }
+  body { margin: 0; font-family: var(--body); font-size: 15px; line-height: 1.55; }
+  a { color: var(--paddle); }
+  :focus-visible { outline: 2px solid var(--paddle); outline-offset: 3px; }
+  code { font-family: var(--mono); font-size: .92em; }
+
+  /* ================================================================ intro */
+  .intro { position: relative; height: 100vh; height: 100svh; min-height: 620px; overflow: hidden; background: var(--night); }
+  .stage { position: absolute; inset: 0; }
+  .stage canvas { display: block; width: 100%; height: 100%; }
+  .stage.fallback { background: radial-gradient(ellipse at 70% 45%, #2a1d55, #07060f 65%); }
+  .intro::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+                   background: linear-gradient(90deg, rgba(7, 6, 15, .92) 0%, rgba(7, 6, 15, .72) 34%, rgba(7, 6, 15, 0) 60%); }
+  .intro-ui { position: absolute; z-index: 2; top: 50%; transform: translateY(-50%); width: min(500px, 46vw);
+              left: max(32px, env(safe-area-inset-left, 0px)); display: grid; gap: 18px;
+              transition: opacity .5s ease, transform .6s ease; }
+  .intro-ui.gone { opacity: 0; transform: translateY(-50%) translateX(-40px); pointer-events: none; }
+  .eyebrow { margin: 0; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+  .eyebrow b { color: var(--ink); font-weight: 600; }
+  .title { margin: 0; font-family: var(--display); font-weight: 700; font-size: clamp(38px, 5.6vw, 72px); line-height: .95; letter-spacing: .02em;
+           text-shadow: 0 0 22px rgba(51, 214, 255, .35); }
+  .title span { display: block; color: var(--paddle); }
+  .tag { margin: 0; color: var(--muted); max-width: 44ch; }
+  .bricks { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; height: 6px; width: 220px; }
+  .bricks span { border-radius: 2px; }
+  .bricks span:nth-child(1) { background: var(--b1); } .bricks span:nth-child(2) { background: var(--b2); }
+  .bricks span:nth-child(3) { background: var(--b3); } .bricks span:nth-child(4) { background: var(--b4); }
+  .bricks span:nth-child(5) { background: var(--b5); }
+  .credits { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+  .credits li { display: grid; grid-template-columns: 1fr auto; column-gap: 14px; align-items: baseline;
+                padding: 8px 0; border-top: 1px solid rgba(162, 170, 198, .18); }
+  .credits .name { font-weight: 600; }
+  .credits .id { font-family: var(--mono); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .credits .role { grid-column: 1 / -1; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .start-row { display: flex; flex-wrap: wrap; gap: 14px 20px; align-items: center; }
+  .start { font-family: var(--display); font-weight: 700; font-size: 24px; letter-spacing: .14em; padding: 14px 30px; border: 0; border-radius: 10px;
+           background: var(--coin); color: #241a00; cursor: pointer; box-shadow: 0 5px 0 #b38f13, 0 0 34px rgba(255, 210, 63, .35);
+           animation: pulse 1.8s ease-in-out infinite; }
+  .start:active { transform: translateY(3px); box-shadow: 0 2px 0 #b38f13; }
+  @keyframes pulse { 50% { box-shadow: 0 5px 0 #b38f13, 0 0 54px rgba(255, 210, 63, .6); } }
+  .start-hint { margin: 0; font-size: 13px; color: var(--muted); }
+  .extra-note { margin: 0; font-size: 12.5px; color: var(--muted); max-width: 46ch; border-left: 2px solid var(--warn); padding-left: 10px; }
+  .scroll-hint { position: absolute; z-index: 2; bottom: max(18px, env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%);
+                 font-size: 13px; color: var(--muted); text-decoration: none; transition: opacity .4s; }
+  .scroll-hint.gone { opacity: 0; pointer-events: none; }
+
+  @media (min-width: 761px) and (max-height: 860px) {
+    .intro { min-height: 560px; }
+    .intro-ui { gap: 12px; }
+    .title { font-size: clamp(32px, 4.4vw, 56px); }
+    .tag { display: none; }
+    .credits { gap: 2px; }
+    .credits li { padding: 5px 0; }
+    .start { font-size: 20px; padding: 11px 24px; }
+  }
+  @media (max-width: 760px) {
+    .intro { min-height: 760px; }
+    .intro::before { background: linear-gradient(0deg, rgba(7, 6, 15, .96) 0%, rgba(7, 6, 15, .85) 52%, rgba(7, 6, 15, 0) 72%); }
+    .intro-ui { top: auto; bottom: 56px; transform: none; width: auto; right: max(16px, env(safe-area-inset-right, 0px));
+                left: max(16px, env(safe-area-inset-left, 0px)); gap: 12px; }
+    .intro-ui.gone { transform: translateY(30px); }
+    .tag, .start-hint { display: none; }
+    .title { font-size: clamp(30px, 10vw, 44px); }
+    .credits { gap: 0; }
+    .credits li { padding: 4px 0; }
+    .credits .role { font-size: 10.5px; }
+    .start { font-size: 20px; padding: 12px 24px; }
+  }
+
+  /* ================================================================ game layer */
+  .game-mode { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; overflow: auto;
+               background: radial-gradient(ellipse at 50% 35%, #161b33 0%, #07060f 70%);
+               padding: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px))
+                        max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)); }
+  .gm { width: min(100%, calc((100vh - 190px) * 4 / 3)); width: min(100%, calc((100dvh - 190px) * 4 / 3)); min-width: min(100%, 320px); display: grid; gap: 10px; }
+  .gm-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; }
+  .back { font: 500 14px var(--body); color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+  .hud { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; font-family: var(--display); font-size: 13px; letter-spacing: .06em; }
+  .hud .stat { display: flex; gap: 8px; align-items: baseline; }
+  .hud .label { color: var(--muted); font-size: 11px; }
+  .hud .value { font-size: 16px; font-variant-numeric: tabular-nums; }
+  .hud .hearts { color: var(--heart); font-family: var(--body); font-size: 16px; letter-spacing: 1px; min-width: 5ch; }
+  .views { margin-left: auto; display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .views button { font-family: var(--display); font-size: 12px; background: transparent; color: var(--muted); border: 0; padding: 7px 12px; cursor: pointer; }
+  .views button[aria-pressed="true"] { background: var(--paddle); color: #04141a; }
+  .screen { position: relative; border-radius: 12px; overflow: hidden; background: #05050f;
+            box-shadow: 0 0 0 10px #10142a, 0 0 0 11px var(--line), 0 0 60px rgba(51, 214, 255, .18); }
+  .screen canvas { display: block; width: 100%; aspect-ratio: 4 / 3; max-width: 100%; touch-action: none; cursor: crosshair; }
+  .screen.power-on canvas { animation: crt-on .5s cubic-bezier(.2, .8, .2, 1); }
+  .screen.power-off canvas { animation: crt-off .35s ease-in forwards; }
+  @keyframes crt-on { 0% { transform: scale(.6, .004); filter: brightness(4); } 45% { transform: scale(1, .004); filter: brightness(3); } 100% { transform: none; filter: none; } }
+  @keyframes crt-off { 0% { transform: none; } 60% { transform: scale(1, .004); filter: brightness(3); } 100% { transform: scale(0, .004); filter: brightness(4); } }
+  .banner { position: absolute; left: 0; right: 0; top: 52%; text-align: center; font-family: var(--display); font-size: clamp(18px, 3.4vw, 30px);
+            letter-spacing: .14em; text-shadow: 0 2px 0 #000; pointer-events: none; }
+  .toast { position: absolute; left: 50%; bottom: 12%; transform: translateX(-50%); max-width: 90%; background: rgba(10, 12, 24, .86); border: 1px solid var(--line);
+           border-radius: 6px; padding: 5px 10px; font-size: 13px; pointer-events: none; text-align: center; }
+  .deck { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .deck button { font: 500 14px var(--body); color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-bottom-width: 3px; border-radius: 8px;
+                 padding: 8px 12px; cursor: pointer; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+  .deck button:active, .deck button.down { transform: translateY(2px); border-bottom-width: 1px; }
+  .deck .arrow { font-size: 18px; padding: 6px 18px; }
+  .deck button[aria-pressed="true"] { border-color: var(--paddle); color: var(--paddle); }
+  .speed { display: flex; align-items: center; gap: 8px; margin-left: auto; font-size: 13px; color: var(--muted); }
+  .speed input { width: 110px; accent-color: var(--paddle); }
+  .speed output { font-family: var(--mono); color: var(--ink); min-width: 4ch; font-variant-numeric: tabular-nums; }
+  .keys-line { margin: 0; font-size: 12.5px; color: var(--muted); }
+  .flash { position: fixed; inset: 0; z-index: 60; background: #e6f8ff; opacity: 0; pointer-events: none; transition: opacity .28s ease; }
+  .flash.on { opacity: 1; }
+  @media (max-width: 640px) { .views, .speed { margin-left: 0; } }
+
+  /* ================================================================ notes below the fold */
+  .info { max-width: 1040px; margin: 0 auto; display: grid; gap: 44px; padding-block: 56px 72px;
+          padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  h2 { font-family: var(--display); font-size: 19px; font-weight: 400; letter-spacing: .05em; margin: 0 0 6px; color: var(--paddle); }
+  .sub { margin: 0 0 18px; color: var(--muted); max-width: 72ch; }
+  .team { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
+  .member { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 6px; align-content: start; }
+  .member .m { font-family: var(--display); font-size: 12px; color: var(--muted); letter-spacing: .08em; }
+  .member .name { font-weight: 600; font-size: 16px; }
+  .member .id { font-family: var(--mono); font-size: 13px; color: var(--muted); }
+  .member p { margin: 4px 0 0; font-size: 14px; }
+  .member .files { font-family: var(--mono); font-size: 12.5px; color: var(--paddle); }
+  .disclaimer { background: linear-gradient(90deg, rgba(255, 182, 72, .1), rgba(255, 182, 72, 0) 70%); border: 1px solid rgba(255, 182, 72, .35);
+                border-radius: 10px; padding: 18px 20px; display: grid; gap: 8px; }
+  .disclaimer h2 { color: var(--warn); }
+  .disclaimer p { margin: 0; max-width: 78ch; }
+  figure { margin: 0; }
+  figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .rec { display: grid; grid-template-columns: 1.6fr 1fr; gap: 16px; align-items: start; }
+  .rec > * { min-width: 0; }
+  .rec img { display: block; width: 100%; border-radius: 8px; border: 1px solid var(--line); }
+  .rec .side { display: grid; gap: 16px; }
+  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 20px; }
+  .two > * { min-width: 0; }
+  .box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
+  dl.stats { display: grid; grid-template-columns: auto 1fr; gap: 7px 16px; margin: 0; font-variant-numeric: tabular-nums; }
+  dl.stats dt { color: var(--muted); }
+  dl.stats dd { margin: 0; font-family: var(--mono); font-size: 14px; text-align: right; }
+  dl.stats .good { color: var(--ok); }
+  pre { background: #0a0d17; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin: 0; overflow-x: auto; font-family: var(--mono); font-size: 13.5px; }
+  .keys { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .keys td { padding: 6px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+  .keys tr:first-child td { border-top: 0; }
+  .keys td:first-child { white-space: nowrap; width: 1%; }
+  kbd { font-family: var(--mono); font-size: 12.5px; background: #0a0d17; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 1px 6px; }
+  footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 18px; }
+  @media (max-width: 720px) { .rec { grid-template-columns: 1fr; } }
+  @media (prefers-reduced-motion: reduce) { .start { animation: none; } .screen.power-on canvas, .screen.power-off canvas { animation: none; } }
+</style>
+</head>
+<body>
+
+<section class="intro" id="intro" aria-label="Intro">
+  <div class="stage" id="stage"></div>
+  <div class="intro-ui" id="introUi">
+    <p class="eyebrow"><b>Al Ain University</b> &middot; College of Engineering<br>Introduction to Computer Graphics &middot; 0102460 &middot; Course project</p>
+    <h1 class="title">ARCADE<span>BREAKOUT</span></h1>
+    <div class="bricks" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+    <p class="tag">OpenGL Animated World: Breakout inside an arcade cabinet, in 2D and 3D, built from our own matrices and scene graph.</p>
+    <ul class="credits" aria-label="Team">
+      <li><span class="name">Bilal Feroz Khan</span><span class="id">202310641</span><span class="role">Lead &middot; engine, scene graph, GUI</span></li>
+      <li><span class="name">Dua Saleem</span><span class="id">202340011</span><span class="role">2D scene &middot; raster algorithms</span></li>
+      <li><span class="name">Mohammed Aamir Koilywala</span><span class="id">202311068</span><span class="role">2D animation &middot; gameplay</span></li>
+      <li><span class="name">Haya Ahmad Meslmani</span><span class="id">202211228</span><span class="role">3D scene &middot; lighting &middot; camera</span></li>
+    </ul>
+    <div class="start-row">
+      <button type="button" class="start" id="start">START</button>
+      <p class="start-hint">or press Enter</p>
+    </div>
+    <p class="extra-note">This 3D arcade intro is a presentation extra, made for the wow factor. The graded project is the team's Python + OpenGL program.</p>
+  </div>
+  <a class="scroll-hint" id="scrollHint" href="#about">About the project &darr;</a>
+</section>
+
+<div class="game-mode" id="gameMode" hidden>
+  <div class="gm">
+    <div class="gm-top">
+      <button type="button" class="back" id="exit">&larr; Back to the arcade</button>
+      <div class="hud">
+        <div class="stat"><span class="label">SCORE</span><span class="value" id="score">00000</span></div>
+        <div class="stat"><span class="label">LEVEL</span><span class="value" id="level">1</span></div>
+        <div class="stat"><span class="label">LIVES</span><span class="hearts" id="lives"></span></div>
+        <div class="stat"><span class="label">BEST</span><span class="value" id="best">00000</span></div>
+      </div>
+      <div class="views" role="group" aria-label="View">
+        <button type="button" id="view2d" aria-pressed="true">2D</button>
+        <button type="button" id="view3d" aria-pressed="false">3D</button>
+      </div>
+    </div>
+    <div class="screen" id="screenBox">
+      <canvas id="screen" width="960" height="720" aria-label="Game screen"></canvas>
+      <div class="banner" id="banner" hidden></div>
+      <div class="toast" id="toast" hidden></div>
+    </div>
+    <div class="deck">
+      <button type="button" class="arrow" id="left" aria-label="Move left">&#9664;</button>
+      <button type="button" class="arrow" id="right" aria-label="Move right">&#9654;</button>
+      <button type="button" id="serve">Serve</button>
+      <button type="button" id="pause">Pause</button>
+      <button type="button" id="demo" aria-pressed="false">Demo</button>
+      <button type="button" id="reset">Reset</button>
+      <label class="speed" for="speed">Speed <input type="range" id="speed" min="0.5" max="2" step="0.25" value="1"><output id="speedOut" for="speed">1.0x</output></label>
+    </div>
+    <p class="keys-line">&larr; &rarr; or mouse: move &middot; &uarr; or click: serve &middot; Space: pause &middot; V: 2D / 3D (drag to orbit, wheel to zoom) &middot; M: demo &middot; R: reset &middot; Esc: back to the arcade</p>
+  </div>
+</div>
+<div class="flash" id="flash"></div>
+
+<main class="info" id="about">
+  <section class="disclaimer">
+    <h2>About this page</h2>
+    <p>The 3D arcade cabinet, the camera zoom and this web page are a presentation extra, made for the wow factor. They are not part of the course requirements and are not what we hand in.</p>
+    <p>The game on the cabinet's screen is a JavaScript port of the team's Python program. It uses the same rules, figures, scene graph and matrix maths, and draws on a web canvas instead of OpenGL. Every member's part works the same way as in the Python version. The graded project is the Python + PyOpenGL + Tkinter program in the GitHub repository.</p>
+  </section>
+
+  <section>
+    <h2>The team</h2>
+    <p class="sub">Four members, one module each, merged on GitHub through feature branches.</p>
+    <div class="team">
+      <article class="member"><span class="m">MEMBER 1 &middot; LEAD</span><span class="name">Bilal Feroz Khan</span><span class="id">202310641</span>
+        <p>Own 3x3 and 4x4 matrices, the scene graph, the timer-based frame loop, the control panel and status bar, unit tests, GitHub and integration.</p>
+        <span class="files">matrices.py &middot; scene.py &middot; main.py &middot; gui.py</span></article>
+      <article class="member"><span class="m">MEMBER 2</span><span class="name">Dua Saleem</span><span class="id">202340011</span>
+        <p>The static 2D scene: cabinet frame, walls, rounded paddle, UFO with dome, hearts, joystick and buttons, Bresenham and midpoint-circle algorithms, letterboxing and click-to-select.</p>
+        <span class="files">raster.py &middot; figures.py (2D) &middot; render2d.py</span></article>
+      <article class="member"><span class="m">MEMBER 3</span><span class="name">Mohammed Aamir Koilywala</span><span class="id">202311068</span>
+        <p>The game and everything that moves in 2D: collisions, score, lives, levels, the UFO's curved path, power-up capsules, demo mode, save and load.</p>
+        <span class="files">game.py &middot; anim2d.py &middot; persist.py</span></article>
+      <article class="member"><span class="m">MEMBER 4</span><span class="name">Haya Ahmad Meslmani</span><span class="id">202211228</span>
+        <p>The 3D view: bevelled bricks and a turned trophy from vertex and face tables, an orbiting star, lighting with face normals and the orbit camera.</p>
+        <span class="files">figures.py (3D) &middot; render3d.py</span></article>
+    </div>
+  </section>
+
+  <section>
+    <h2>The real program</h2>
+    <p class="sub">Recorded from the Python version on Windows after all branches were merged. Demo mode plays by itself for 35 seconds and switches from 2D to 3D at the 24-second mark.</p>
+    <div class="rec">
+      <figure><img src="assets/gameplay.gif" alt="Recording of the Python program: bricks break and fall, the UFO crosses the sky, a capsule drops, then the view turns to lit 3D bricks with a gold trophy."><figcaption>OpenGL canvas, 2x speed</figcaption></figure>
+      <div class="side">
+        <figure><img src="assets/still_2d.png" alt="2D view: coloured bricks, a green UFO, a falling capsule, the cyan paddle, joystick and buttons."><figcaption>2D view</figcaption></figure>
+        <figure><img src="assets/still_3d.png" alt="3D view: lit bevelled bricks at an angle, a sphere ball, the paddle and a gold trophy with a star."><figcaption>3D view, camera orbited</figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <div class="two">
+    <section class="box">
+      <h2>Play-test</h2>
+      <dl class="stats">
+        <dt>Verdict</dt><dd class="good">Playable</dd>
+        <dt>Bricks broken in 35 s</dt><dd>22 of 50</dd>
+        <dt>Score</dt><dd>0 &rarr; 295</dd>
+        <dt>Lives</dt><dd>3 &rarr; 4 (pink capsule)</dd>
+        <dt>Runtime errors</dt><dd>0</dd>
+        <dt>Unit tests</dt><dd>42 pass, 3 to write</dd>
+        <dt>Frame rate 2D / 3D</dt><dd>~48 / ~37 FPS</dd>
+      </dl>
+    </section>
+    <section class="box">
+      <h2>Run the Python version</h2>
+      <pre>git clone https://github.com/bilal-feroz/Comp-Graphics-Project.git
+cd Comp-Graphics-Project
+pip install -r requirements.txt
+cd code
+python main.py</pre>
+      <table class="keys" style="margin-top:12px">
+        <tr><td><kbd>&larr;</kbd> <kbd>&rarr;</kbd></td><td>Move the paddle</td></tr>
+        <tr><td><kbd>&uarr;</kbd></td><td>Serve the ball</td></tr>
+        <tr><td><kbd>Space</kbd></td><td>Pause and play</td></tr>
+        <tr><td><kbd>V</kbd></td><td>Switch between 2D and 3D</td></tr>
+        <tr><td><kbd>M</kbd> &middot; <kbd>R</kbd> &middot; <kbd>H</kbd></td><td>Demo mode, reset, help</td></tr>
+      </table>
+    </section>
+  </div>
+
+  <footer>Arcade Breakout &middot; Introduction to Computer Graphics (0102460), Al Ain University &middot;
+    Code: <a href="https://github.com/bilal-feroz/Comp-Graphics-Project">github.com/bilal-feroz/Comp-Graphics-Project</a></footer>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/GammaCorrectionShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script src="engine.js"></script>
+<script src="arcade.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
