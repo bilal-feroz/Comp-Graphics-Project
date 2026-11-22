@@ -64,13 +64,23 @@ def sync(root, game, dt):
     """Copy the game state onto the 3D nodes (same numbers as the 2D view)."""
     ball = root.find("ball")
     ball.tx, ball.ty, ball.rz = game.ball_x, game.ball_y, game.ball_spin
+
     paddle = root.find("paddle")
     paddle.tx, paddle.sx = game.paddle_x, game.paddle_width
+
     for node in root.find("bricks").children:
         row, col = (int(n) for n in node.name.split("_")[1:])
         node.visible = game.bricks[row][col]["alive"]
-    root.find("trophy").ry += 45.0 * dt    # TODO(M4): turntable + orbiting star
 
+    trophy = root.find("trophy")
+    trophy.ry += 45.0 * dt
+
+    star = trophy.find("star")
+    star.ry += 90.0 * dt
+
+    angle = math.radians(star.ry)
+    star.tx = 2.0 * math.cos(angle)
+    star.tz = 2.0 * math.sin(angle)
 
 def draw(root, width, height, camera, selected=None):
     """Draw one frame of the 3D view."""
@@ -123,7 +133,9 @@ def _inside(node, selected):
 
 
 def _wireframe(node, highlighted):
-    glColor3f(*(SELECTED_COLOUR if highlighted else node.color))
+    color = SELECTED_COLOUR if highlighted else node.color
+    glColor3f(*color)
+    glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE, (*color, 1.0))
 
     if node.name == "ball":
         quadric = gluNewQuadric()
