@@ -38,7 +38,11 @@ Keyboard
     R            reset the game and the scene
     V            switch between the 2D and 3D view
     Left, Right  move the paddle
+    Up           serve the ball now (otherwise it is served after 1.2 s)
     M            attract mode (the paddle plays by itself)
+    P            save a screenshot (code/screenshots/)
+    Ctrl+S       save the settings (code/settings.json)
+    Ctrl+O       load the saved settings
     H            open / close the help window
     (A help line with these keys is always shown under the picture.)
 
@@ -48,6 +52,7 @@ Mouse
 
 Control panel (right side)
     Play / Pause, Reset      same as Space and R
+    Save, Load, Screenshot   same as Ctrl+S, Ctrl+O and P
     Speed (x)                animation speed from 0.1x to 3x
     View 2D / 3D             same as V
     Object                   choose any node of the scene graph; children are
@@ -63,9 +68,21 @@ Control panel (right side)
                              refreshed 5 times a second
 
 Status bar (bottom): animation time, frames per second, view, selected object,
-and messages. Wrong input never crashes the program: sliders stay in range,
+score, lives, level, best score, and messages (ball lost, level up, power-ups). Wrong input never crashes the program: sliders stay in range,
 entry boxes refuse letters, typed numbers are clamped, and any error is shown
 in red in the status bar.
+
+
+GAME RULES
+----------
+    Break all 50 bricks (10 points each). The ball's angle depends on where it
+    lands on the paddle: the centre sends it straight up, the edges 60 degrees.
+    Hit the UFO for 50 points. It drops power-up capsules (25 points):
+        blue   wide paddle for 10 s
+        green  slow ball for 8 s
+        pink   extra life (at most 5)
+    3 lives. Each new level makes the ball 10 % faster.
+    Game over: press R. In attract mode a new game starts by itself.
 
 
 FILES (code/)
@@ -79,7 +96,9 @@ FILES (code/)
     raster.py         Bresenham, midpoint circle, scan-line fill        Member 2
     render2d.py       draws the 2D scene                                Member 2
     game.py           game state, update(dt), collisions, score         Member 3
+    anim2d.py         2D animation: game numbers -> node T . R . S      Member 3
     persist.py        JSON save / load, screenshot (optional)           Member 3
     render3d.py       3D drawing, lights, camera                        Member 4
 
-More detail: docs/HOW_IT_WORKS.md (architecture, scene graph, frame loop).
+More detail: docs/HOW_IT_WORKS.md (architecture, scene graph, frame loop)
+             docs/GAMEPLAY.md     (game rules, collisions, 2D animation, save / load)

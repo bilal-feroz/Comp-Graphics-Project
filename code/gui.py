@@ -34,18 +34,29 @@ from tkinter import ttk
 from OpenGL.GL import glClearColor
 from pyopengltk import OpenGLFrame
 
+import persist
 import render2d
 import render3d
 
-HELP_LINE = ("Space pause   R reset   V 2D/3D   Left/Right paddle   M attract mode   "
-             "H help   |   click = select (2D)   drag / wheel = camera (3D)")
+HELP_LINE = ("Space pause  R reset  V 2D/3D  Left/Right paddle  Up serve  M attract  "
+             "P screenshot  Ctrl+S/O save/load  H help  |  click select (2D)  drag/wheel camera (3D)")
 HELP_TEXT = """KEYBOARD
   Space        pause / play
   R            reset the game and the scene
   V            switch between the 2D and 3D view
   Left, Right  move the paddle
+  Up           serve the ball now
   M            attract mode (the paddle plays by itself)
+  P            save a screenshot (screenshots/ folder)
+  Ctrl+S       save the settings (settings.json)
+  Ctrl+O       load the saved settings
   H            show / hide this help
+
+GAME
+  Break every brick (10 points). Hit the UFO for 50.
+  The UFO drops capsules: blue = wide paddle,
+  green = slow ball, pink = extra life.
+  Each new level makes the ball 10 % faster.
 
 MOUSE
   2D view      click an object to select it
@@ -142,6 +153,18 @@ class GLCanvas(OpenGLFrame):
         self.tkMakeCurrent()
         self.redraw()
         self.tkSwapBuffers()
+
+    def capture(self, path):
+        """Draw a fresh frame, save it as a PNG BEFORE the swap (the back buffer
+        still holds it), then show it as usual. Returns the file name."""
+        if not self.context_created:
+            raise RuntimeError("the picture is not on screen yet")
+        self.tkMakeCurrent()
+        self.redraw()
+        saved = persist.save_screenshot(path, max(1, self.winfo_width()),
+                                        max(1, self.winfo_height()))
+        self.tkSwapBuffers()
+        return saved
 
 
 class SliderRow:
@@ -305,7 +328,9 @@ class MainWindow:
         self.status_fps = ttk.Label(status, width=9)
         self.status_view = ttk.Label(status, width=16)
         self.status_selected = ttk.Label(status, width=28)
-        for label in (self.status_time, self.status_fps, self.status_view, self.status_selected):
+        self.status_game = ttk.Label(status, width=40)         # score, lives, level (Member 3)
+        for label in (self.status_time, self.status_fps, self.status_view, self.status_selected,
+                      self.status_game):
             label.pack(side="left")
             ttk.Separator(status, orient="vertical").pack(side="left", fill="y", padx=4)
         self.status_message = ttk.Label(status, anchor="w")
@@ -339,6 +364,13 @@ class MainWindow:
                             command=self.safe(lambda: self.app.set_view(self.view_var.get()))
                             ).pack(side="left", padx=(0, 12))
 
+        files = ttk.Frame(box)                    # persist.py (Member 3)
+        files.grid(row=3, column=0, columnspan=3, sticky="w", pady=(4, 0))
+        for text, action in (("Save", self.app.save_settings), ("Load", self.app.load_settings),
+                             ("Screenshot", self.app.save_screenshot)):
+            ttk.Button(files, text=text, width=10, takefocus=False,
+                       command=self.safe(action)).pack(side="left", padx=(0, 6))
+
     def _build_selection_section(self):
         box = self._section("Selected object")
         ttk.Label(box, text="Object").grid(row=0, column=0, sticky="w")
@@ -371,10 +403,24 @@ class MainWindow:
         rows =[("Ball speed", "ball_speed", 1.0, 15.0, 1),
                 ("UFO orbit (deg/s)", "ufo_orbit_speed", 0.0, 360.0, 0),
                 ("Paddle width (x)", "paddle_width", 0.5, 2.5, 2)]
+        self.tuning = {}                  # kept so loading settings can move the sliders
         for row, (text, attribute, low, high, digits) in enumerate(rows):
-            start = getattr(self.app.game, attribute, low)
-            SliderRow(box, row, text, low, high, start, self._game_setter(attribute),
-                      self.app.report_error, digits)
+            start = self._game_value(attribute, low)
+            self.tuning[attribute] = SliderRow(box, row, text, low, high, start,
+                                               self._game_setter(attribute),
+                                               self.app.report_error, digits)
+
+    def _game_value(self, attribute, default):
+        """The slider value of a game setting. For the paddle that is the
+        slider's own width, without a wide power-up that may be running."""
+        if attribute == "paddle_width" and hasattr(self.app.game, "paddle_base"):
+            return self.app.game.paddle_base
+        return getattr(self.app.game, attribute, default)
+
+    def refresh_tuning(self):
+        """Move the Game tuning sliders to the game's values (after Load)."""
+        for attribute, slider in self.tuning.items():
+            slider.set(self._game_value(attribute, slider.low))
 
     def _game_setter(self, attribute):
         """A slider callback that writes one attribute of the Game."""
@@ -526,11 +572,23 @@ class MainWindow:
             self.status_view.config(text="View %s%s" % (self.app.view,
                                                         "  PAUSED" if self.app.paused else ""))
             self.status_selected.config(text="Selected: %s" % (node.name if node else "none"))
+            self.status_game.config(text=self._game_report(self.app.game))
             self._write_matrix(self._matrix_report(node))
         except Exception as error:
             self.app.report_error(error)
         finally:
             self.root.after(PANEL_REFRESH_MS, self._refresh_panels)
+
+    @staticmethod
+    def _game_report(game):
+        """Score, lives, level and best score for the status bar."""
+        text = "Score %d   Lives %d   Level %d   Best %d" % (
+            game.score, game.lives, game.level, getattr(game, "high_score", 0))
+        if getattr(game, "state", "") == "game_over":
+            text += "   GAME OVER"
+        elif game.attract:
+            text += "   DEMO"
+        return text
 
     @staticmethod
     def _matrix_report(node):
@@ -554,11 +612,17 @@ class MainWindow:
     def _bind_keys(self):
         self.root.bind_all("<KeyPress>", self.safe(self._key_pressed))
         self.root.bind_all("<KeyRelease>", self.safe(self._key_released))
+        for key in ("<Control-s>", "<Control-S>"):
+            self.root.bind_all(key, self.safe(lambda event: self.app.save_settings()))
+        for key in ("<Control-o>", "<Control-O>"):
+            self.root.bind_all(key, self.safe(lambda event: self.app.load_settings()))
 
     def _key_pressed(self, event):
         if isinstance(event.widget, (tk.Entry, ttk.Entry)):
             return                        # the user is typing a number
         key = event.keysym.lower()
+        if event.state & 0x4 and key in ("s", "o"):
+            return                        # Ctrl+S / Ctrl+O have their own bindings
         if key == "space":
             self.app.toggle_pause()
         elif key == "r":
@@ -573,6 +637,10 @@ class MainWindow:
         elif key in ("left", "right"):
             self.held_keys.add(key)
             self._update_paddle()
+        elif key == "up":
+            self.app.game.launch()
+        elif key == "p":
+            self.app.save_screenshot()
 
     def _key_released(self, event):
         key = event.keysym.lower()

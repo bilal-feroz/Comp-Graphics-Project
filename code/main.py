@@ -12,6 +12,7 @@ One frame (Tk calls tick() again about every 16 ms with after()):
 There is no sleep() and no busy-wait loop: the Tk event loop stays free for
 the mouse and keyboard between frames.
 """
+import os
 import sys
 import time
 import tkinter as tk
@@ -25,6 +26,7 @@ import OpenGL
 OpenGL.ERROR_CHECKING = False
 
 import game as game_module
+import persist
 import render2d
 import render3d
 from gui import MainWindow
@@ -63,6 +65,7 @@ class App:
             self.last_time = now
             if not self.paused:
                 self.step(dt * self.speed)
+            self.show_game_events()
             self.gui.canvas.render_frame()
             self.gui.count_frame()
         except Exception as error:
@@ -85,6 +88,11 @@ class App:
             render2d.draw(self.scene2d, width, height, self.selected)
         else:
             render3d.draw(self.scene3d, width, height, self.gui.camera, self.selected)
+
+    def show_game_events(self):
+        """Game messages (ball lost, level up, power-up...) go to the status bar."""
+        for text in self.game.pop_events():
+            self.gui.show_message(text)
 
     def current_scene(self):
         """Root node of the scene graph that is on screen."""
@@ -143,6 +151,28 @@ class App:
         """Object selector or a click on the canvas."""
         self.selected = node
         self.gui.show_selection(node)
+
+    # ------------------------------------------------------------------ save / load (persist.py, Member 3)
+
+    def save_settings(self):
+        """Ctrl+S / Save button."""
+        path = persist.save_settings(persist.SETTINGS_PATH, persist.collect_settings(self))
+        self.gui.show_message("Settings saved to %s" % os.path.basename(path))
+
+    def load_settings(self):
+        """Ctrl+O / Load button. A bad file only gives a message (gui.safe)."""
+        data = persist.load_settings(persist.SETTINGS_PATH)
+        changed = persist.apply_settings(self, data)
+        self.gui.refresh_controls()
+        self.gui.refresh_tuning()
+        self.gui.show_selection(self.selected)
+        self.gui.show_message("Settings loaded (%d objects, saved %s)"
+                              % (changed, data.get("saved", "?")))
+
+    def save_screenshot(self):
+        """P / Screenshot button."""
+        path = self.gui.canvas.capture(persist.screenshot_path())
+        self.gui.show_message("Screenshot saved: screenshots/%s" % os.path.basename(path))
 
 
 def main():

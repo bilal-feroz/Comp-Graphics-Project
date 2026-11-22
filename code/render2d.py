@@ -23,6 +23,7 @@ from OpenGL.GL import (GL_COLOR_BUFFER_BIT, GL_DEPTH_TEST, GL_LIGHTING, GL_LINE_
                        glDisable, glEnd, glLineWidth, glLoadIdentity, glMatrixMode,
                        glOrtho, glVertex2f, glViewport)
 
+import anim2d
 import figures
 import game as rules
 from scene import Node
@@ -59,19 +60,17 @@ def build_scene():
         a = math.radians(90 * i)
         ring.add(Node("ufo_light_%d" % i, figures.regular_polygon(6, 0.15),
                       (1.0, 0.9, 0.2), tx=1.0 * math.cos(a), ty=1.0 * math.sin(a)))
+    # Member 3: default joystick, capsule and hearts for any of them this scene
+    # does not define itself (same names = yours are used instead).
+    anim2d.ensure_nodes(root)
     return root
 
 
 def sync(root, game, dt):
-    """Copy the game state (plain numbers) onto the nodes before drawing."""
-    ball = root.find("ball")
-    ball.tx, ball.ty, ball.angle = game.ball_x, game.ball_y, game.ball_spin
-    paddle = root.find("paddle")
-    paddle.tx, paddle.sx = game.paddle_x, game.paddle_width
-    for node in root.find("bricks").children:
-        row, col = (int(n) for n in node.name.split("_")[1:])
-        node.visible = game.bricks[row][col]["alive"]
-    root.find("ufo_light_ring").angle = game.ufo_light_angle
+    """Copy the game state (plain numbers) onto the nodes before drawing.
+    The 2D animation lives in anim2d.py (Member 3): ball, paddle, brick break /
+    build, UFO path and lights, capsule, joystick, hearts, score pulse."""
+    anim2d.sync(root, game, dt)
 
 
 def draw(root, width, height, selected=None):

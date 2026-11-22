@@ -165,21 +165,258 @@ class TestRaster(unittest.TestCase):
 
 
 # ======================================================================= Member 3: game
-# TODO(M3): replace the skip markers with the real tests.
+# Game rules, 2D animation and save / load. No window is opened: game.py and
+# anim2d.py are plain numbers, which is exactly why they are easy to test.
 
 class TestGame(unittest.TestCase):
 
-    @unittest.skip("TODO(M3): a ball moving right at the right wall ends with negative vx")
+    def setUp(self):
+        import game as rules             # imported here like the GUI tests above
+        self.rules = rules
+        self.game = rules.Game(seed=1)
+        self.game._build_bricks(animated=False)     # skip the pop-in animation
+
+    def put_ball(self, x, y, vx, vy):
+        """Ball in play at (x, y) with velocity (vx, vy)."""
+        g = self.game
+        g.state = self.rules.PLAY
+        g.ball_x, g.ball_y, g.ball_vx, g.ball_vy = x, y, vx, vy
+        g.ball_speed = math.hypot(vx, vy)
+
     def test_ball_bounces_off_right_wall(self):
-        pass
+        self.put_ball(9.5, 0.0, 4.0, -3.0)
+        self.game.update(0.1)
+        self.assertLess(self.game.ball_vx, 0.0)                       # now moving left
+        self.assertLessEqual(self.game.ball_x, self.rules.WORLD_RIGHT - self.rules.BALL_RADIUS)
+        self.assertTrue(close(self.game.ball_vy, -3.0))               # vy unchanged
 
-    @unittest.skip("TODO(M3): hitting a brick removes it and adds 10 to the score")
     def test_brick_hit_scores_10(self):
-        pass
+        x, y = self.rules.brick_center(4, 5)                          # bottom row, (1.0, 1.6)
+        self.put_ball(x, y - 0.8, 0.0, 6.0)                           # just below, going up
+        self.game.update(0.1)
+        self.assertFalse(self.game.bricks[4][5]["alive"])
+        self.assertEqual(self.game.score, 10)
+        self.assertEqual(self.game.bricks_left, 49)
+        self.assertLess(self.game.ball_vy, 0.0)                       # bounced back down
 
-    @unittest.skip("TODO(M3): the UFO heading equals atan2(vy, vx) of its velocity")
     def test_ufo_faces_its_direction(self):
-        pass
+        """The heading is atan2(vy, vx) of the real velocity (checked against a
+        finite difference of the path), and the saucer never tilts past 18 deg.
+        (t = 4 s and 12 s are left out: the UFO turns round off screen there.)"""
+        for t in (0.0, 1.3, 2.9, 7.7, 9.1, 13.5):
+            self.game.time = t
+            self.game._move_ufo(0.0)
+            h = 1e-5
+            x1, y1, _, _ = self.rules.ufo_path(t - h)
+            x2, y2, _, _ = self.rules.ufo_path(t + h)
+            expected = math.degrees(math.atan2(y2 - y1, x2 - x1))
+            self.assertAlmostEqual(self.game.ufo_heading, expected, places=4)
+            self.assertLessEqual(abs(self.game.ufo_angle), 18.0)
+
+    def test_paddle_centre_sends_ball_up_and_edge_at_60_degrees(self):
+        r = self.rules
+        top = r.PADDLE_Y + r.PADDLE_HALF_HEIGHT + r.BALL_RADIUS
+        self.put_ball(0.0, top + 0.05, 0.0, -6.0)                     # centre of the paddle
+        self.game.update(0.05)
+        self.assertGreater(self.game.ball_vy, 0.0)
+        self.assertTrue(close(self.game.ball_vx, 0.0))
+        self.put_ball(r.PADDLE_HALF_WIDTH, top + 0.05, 0.0, -6.0)     # right edge
+        self.game.update(0.05)
+        self.assertTrue(close(self.game.ball_vx, 6.0 * math.sin(math.radians(60)), 6))
+
+    def test_fast_ball_does_not_tunnel_through_a_brick(self):
+        """One frame of 0.3 s at 15 units/s is 4.5 units, far more than a brick
+        is high. The sub-steps still catch the hit."""
+        x, y = self.rules.brick_center(4, 5)
+        self.put_ball(x, y - 3.0, 0.0, 15.0)
+        self.game.update(0.3)
+        self.assertFalse(self.game.bricks[4][5]["alive"])
+        self.assertLess(self.game.ball_y, y)                          # it did not pass through
+
+    def test_losing_the_ball_costs_a_life_and_serves_again(self):
+        self.put_ball(-8.0, -7.3, 0.0, -6.0)                          # below the paddle
+        self.game.update(0.1)
+        self.assertEqual(self.game.lives, 2)
+        self.assertEqual(self.game.state, self.rules.SERVE)
+        self.assertEqual(self.game.heart_pop_index, 2)                # that heart pops
+        self.assertTrue(close(self.game.ball_x, self.game.paddle_x))  # back on the paddle
+
+    def test_game_over_after_the_last_life(self):
+        self.game.lives = 1
+        self.put_ball(-8.0, -7.3, 0.0, -6.0)
+        self.game.update(0.1)
+        self.assertEqual(self.game.state, self.rules.GAME_OVER)
+        self.assertFalse(self.game.ball_visible)
+        self.assertEqual(self.game.banner, "GAME OVER")
+        self.game.update(5.0)                                         # no restart without attract
+        self.assertEqual(self.game.state, self.rules.GAME_OVER)
+
+    def test_last_brick_starts_a_faster_level(self):
+        g = self.game
+        for line in g.bricks:
+            for brick in line:
+                brick["alive"], brick["phase"], brick["visible"] = False, "gone", False
+        g.bricks[4][5].update(alive=True, phase="idle", visible=True)
+        g.bricks_left = 1
+        speed_level_1 = g.current_ball_speed()
+        x, y = self.rules.brick_center(4, 5)
+        self.put_ball(x, y - 0.8, 0.0, 6.0)
+        g.update(0.1)
+        self.assertEqual(g.level, 2)
+        self.assertEqual(g.state, self.rules.SERVE)
+        for _ in range(60):
+            g.update(1 / 60.0)                                        # the new wall appears
+        self.assertEqual(g.bricks_left, 50)
+        self.assertTrue(close(g.current_ball_speed(), speed_level_1 * 1.1))
+
+    def test_wide_power_up_grows_smoothly_and_keeps_the_slider_value(self):
+        g = self.game
+        g.serve_timer = 1e9                                           # keep the ball on the paddle
+        g.paddle_width = 1.2                                          # the GUI slider
+        g.capsule_kind = "wide"
+        g._catch_capsule()
+        g.update(0.1)
+        self.assertTrue(1.2 < g.paddle_width < 1.2 * 1.6)             # growing, not jumping
+        for _ in range(30):
+            g.update(0.1)
+        self.assertTrue(close(g.paddle_width, 1.2 * 1.6, 2))
+        self.assertEqual(g.paddle_base, 1.2)                          # slider untouched
+        for _ in range(100):
+            g.update(0.1)                                             # 10 s later it is over
+        self.assertTrue(close(g.paddle_width, 1.2, 2))
+
+    def test_attract_mode_keeps_the_ball_alive(self):
+        g = self.rules.Game(seed=7)
+        g.toggle_attract()
+        for _ in range(60 * 120):                                     # two minutes at 60 FPS
+            g.update(1 / 60.0)
+        self.assertGreaterEqual(g.lives, 3)
+        self.assertGreater(g.score, 200)
+
+    def test_update_ignores_zero_negative_and_nan_dt(self):
+        before = self.game.time
+        for dt in (0.0, -1.0, float("nan")):
+            self.game.update(dt)
+        self.assertEqual(self.game.time, before)
+
+    def test_circle_rect_contact_normals(self):
+        contact = self.rules.circle_rect_contact
+        nx, ny, depth = contact(0.0, 0.55, 0.3, 0.0, 0.0, 1.0, 0.3)   # on top
+        self.assertTrue(close((nx, ny, depth), (0.0, 1.0, 0.05)))
+        nx, ny, _ = contact(1.1, 0.4, 0.3, 0.0, 0.0, 1.0, 0.3)        # top-right corner
+        self.assertTrue(close((nx, ny), (math.sqrt(0.5), math.sqrt(0.5))))
+        self.assertIsNone(contact(0.0, 1.0, 0.3, 0.0, 0.0, 1.0, 0.3))  # too far away
+
+    def test_attract_prediction_folds_between_the_walls(self):
+        # A ball that would reach x = 11 bounces off the wall at 9.7 and ends at 8.4.
+        self.assertTrue(close(self.rules.fold_between(11.0, -9.7, 9.7), 8.4))
+        self.assertTrue(close(self.rules.fold_between(3.0, -9.7, 9.7), 3.0))
+
+
+class TestAnimation2D(unittest.TestCase):
+
+    def setUp(self):
+        import anim2d
+        import game as rules
+        import render2d
+        self.anim2d, self.rules = anim2d, rules
+        self.game = rules.Game(seed=1)
+        self.game._build_bricks(animated=False)
+        self.root = render2d.build_scene()
+        anim2d.sync(self.root, self.game)
+
+    def test_joystick_knob_follows_the_tilted_stick(self):
+        """world(knob) = T(base) . T(pivot) . R(tilt) . T(0, 0.2) . T(0, 0.2)"""
+        self.game.joystick_tilt = -25.0
+        self.anim2d.sync(self.root, self.game)
+        knob = self.root.find("joystick_knob")
+        (x, y), = mx.apply2(knob.world(), [(0, 0)])
+        a = math.radians(-25.0)
+        expected = (-8.9 - 0.4 * math.sin(a), -7.38 + 0.1 + 0.4 * math.cos(a))
+        self.assertTrue(close((x, y), expected))
+
+    def test_ufo_lights_ride_on_the_moving_ufo(self):
+        for _ in range(30):
+            self.game.update(0.1)
+            self.anim2d.sync(self.root, self.game)
+            ufo = mx.apply2(self.root.find("ufo").world(), [(0, 0)])[0]
+            light = mx.apply2(self.root.find("ufo_light_2").world(), [(0, 0)])[0]
+            self.assertTrue(close(math.dist(ufo, light), 1.0))        # always on the ring
+
+    def test_broken_brick_shrinks_spins_falls_then_disappears(self):
+        node = self.root.find("brick_0_0")
+        base_x, base_y = self.rules.brick_center(0, 0)
+        self.game._break_brick(0, 0)
+        self.game._animate_bricks(0.2)
+        self.anim2d.sync(self.root, self.game)
+        self.assertTrue(node.visible)
+        self.assertTrue(0.0 < node.sx < 1.0)
+        self.assertNotEqual(node.angle, 0.0)
+        self.assertLess(node.ty, base_y)
+        self.game._animate_bricks(0.3)
+        self.anim2d.sync(self.root, self.game)
+        self.assertFalse(node.visible)
+
+    def test_gui_size_on_an_idle_brick_is_kept(self):
+        node = self.root.find("brick_2_3")
+        node.sx = node.sy = 2.0                                       # the Size slider
+        self.game.update(0.1)
+        self.anim2d.sync(self.root, self.game)
+        self.assertEqual(node.sx, 2.0)
+
+
+class TestPersist(unittest.TestCase):
+
+    def setUp(self):
+        import tempfile
+        import persist
+        self.persist = persist
+        self.folder = tempfile.TemporaryDirectory()
+        self.path = self.folder.name + "/settings.json"
+
+    def tearDown(self):
+        self.folder.cleanup()
+
+    def test_settings_round_trip(self):
+        data = {"format": self.persist.FORMAT, "version": 1, "speed": 1.5, "view": "3D",
+                "nodes_2d": {"ufo": {"color": [0.1, 0.2, 0.3], "size": 1.4}}}
+        self.persist.save_settings(self.path, data)
+        self.assertEqual(self.persist.load_settings(self.path), data)
+
+    def test_missing_damaged_or_foreign_files_give_a_clear_error(self):
+        with self.assertRaises(ValueError):
+            self.persist.load_settings(self.path)                     # not saved yet
+        for text in ("{broken", "[1, 2, 3]", '{"format": "something else", "version": 1}'):
+            with open(self.path, "w") as file:
+                file.write(text)
+            with self.assertRaises(ValueError):
+                self.persist.load_settings(self.path)
+
+    def test_apply_settings_clamps_and_skips_bad_values(self):
+        import types
+        import game as rules
+        import render2d
+        calls = []
+        app = types.SimpleNamespace(game=rules.Game(), scene2d=render2d.build_scene(),
+                                    scene3d=Node("world", dim=3), gui=None,
+                                    set_speed=lambda v: calls.append(("speed", v)),
+                                    set_view=lambda v: calls.append(("view", v)))
+        data = {"format": self.persist.FORMAT, "version": 1, "speed": 99, "view": "4D",
+                "game": {"ball_speed": "fast", "paddle_width": 0.0, "ufo_orbit_speed": True},
+                "nodes_2d": {"ufo": {"size": 50, "color": [2, -1, 0.5], "rotation": 270},
+                             "bricks": {"rotation": 270},
+                             "brick_0_0": {"visible": False},
+                             "no_such_node": {"size": 2}}}
+        self.persist.apply_settings(app, data)
+        self.assertEqual(calls, [("speed", 3.0)])                     # clamped; "4D" ignored
+        self.assertEqual(app.game.ball_speed, 6.0)                    # "fast" is not a number
+        self.assertEqual(app.game.ufo_orbit_speed, 120.0)             # True is not a number
+        self.assertEqual(app.game.paddle_base, 0.5)                   # clamped to the slider
+        ufo = app.scene2d.find("ufo")
+        self.assertEqual((ufo.sx, ufo.color), (3.0, (1.0, 0.0, 0.5)))   # clamped
+        self.assertEqual(ufo.angle, 0.0)            # the animation owns the UFO's rotation
+        self.assertEqual(app.scene2d.find("bricks").angle, -90.0)     # 270 wrapped
+        self.assertTrue(app.scene2d.find("brick_0_0").visible)        # the game decides that
 
 
 # ======================================================================= Member 4: 3D
