@@ -4,6 +4,10 @@
  * (same rules, figures, scene graph and matrices). This file only wires it to
  * the page: the intro (arcade.js, a presentation extra), the START button, the
  * keyboard / mouse / touch controls and the score bar.
+ *
+ * Modes:  intro -> zoom-in -> fade-in -> game -> fade-out -> zoom-out -> intro
+ * The zoom ends with the 3D screen covering exactly the HTML game canvas, which
+ * shows the same frame, so the game layer can simply cross-fade in on top.
  */
 (function () {
   "use strict";
@@ -11,14 +15,15 @@
   const $ = (id) => document.getElementById(id);
   const reduced = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
   const canvas = $("screen"), ctx = canvas.getContext("2d");
-  const gameMode = $("gameMode"), introUi = $("introUi"), flash = $("flash"), screenBox = $("screenBox");
+  const gameMode = $("gameMode"), introUi = $("introUi"), stage = $("stage");
+  const ZOOM_SECONDS = reduced ? 0 : 2.6, FADE_MS = reduced ? 0 : 650;
 
-  let mode = "intro";                                 // intro -> zoom-in -> game -> zoom-out -> intro
+  let mode = "intro";
   let game, scene2, scene3, view = "2D", paused = false, speed = 1, best = 0;
   try { best = +localStorage.getItem("arcade-breakout-best") || 0; } catch (e) { /* private mode */ }
   const held = { left: false, right: false };
-  let pointerX = null, dragging = null, toastTimer = 0, introClock = 0;
-  const introCam = { yaw: -25, pitch: 24, distance: 24 };   // 3D demo camera on the cabinet's screen
+  let pointerX = null, dragging = null, toastTimer = 0, introClock = 0, fx = 1;
+  const introCam = { yaw: -25, pitch: 15, distance: 27 };   // 3D demo camera on the cabinet's screen
 
   function newGame(attract) {
     game = new B.Game(Math.floor(Math.random() * 1e6));
@@ -30,67 +35,88 @@
   }
   newGame(true);                                      // the cabinet plays its demo
 
+  // ------------------------------------------------------------------ the intro text appears once the fonts are in
+  let revealed = false;
+  function reveal() { if (!revealed) { revealed = true; introUi.classList.add("ready"); } }
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(reveal, reveal);
+  setTimeout(reveal, 700);
+
   // ------------------------------------------------------------------ canvas size
   function setCanvasSize(w, h) { if (canvas.width !== w || canvas.height !== h) { canvas.width = w; canvas.height = h; } }
   function fit() {
-    if (mode !== "game") return;
+    if (gameMode.hidden) return;
     const w = canvas.clientWidth, dpr = Math.min(window.devicePixelRatio || 1, 2);
     if (w > 0) setCanvasSize(Math.round(w * dpr), Math.round(w * 0.75 * dpr));
   }
   new ResizeObserver(fit).observe(canvas);
+  function canvasRect() {                             // the game canvas, in the 3D stage's pixels
+    const r = canvas.getBoundingClientRect(), s = stage.getBoundingClientRect();
+    return { x: r.left - s.left, y: r.top - s.top, w: r.width, h: r.height };
+  }
 
   // ------------------------------------------------------------------ the 3D arcade (optional)
   let arcade = null;
-  try { arcade = window.Arcade.create($("stage"), canvas, { reduced }); }
-  catch (e) { console.warn("3D intro unavailable:", e.message); $("stage").classList.add("fallback"); }
+  try { arcade = window.Arcade.create(stage, canvas, { reduced }); }
+  catch (e) { console.warn("3D intro unavailable:", e.message); stage.classList.add("fallback"); }
   let introVisible = true;
   new IntersectionObserver((entries) => { introVisible = entries[0].isIntersecting; }).observe($("intro"));
 
-  function coinSound() {                              // two square-wave beeps, like a coin drop
+  function coinSound() {                              // a soft two-note coin chime
     try {
-      const ac = new (window.AudioContext || window.webkitAudioContext)(), o = ac.createOscillator(), g = ac.createGain(), t = ac.currentTime;
-      o.type = "square"; o.frequency.setValueAtTime(988, t); o.frequency.setValueAtTime(1319, t + 0.09);
-      g.gain.setValueAtTime(0.05, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.4);
-      o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t + 0.42);
+      const ac = new (window.AudioContext || window.webkitAudioContext)(), t = ac.currentTime;
+      [[988, 0], [1319, 0.085]].forEach(([f, at]) => {
+        const o = ac.createOscillator(), g = ac.createGain();
+        o.type = "triangle"; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t + at); g.gain.exponentialRampToValueAtTime(0.06, t + at + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + at + 0.35);
+        o.connect(g); g.connect(ac.destination); o.start(t + at); o.stop(t + at + 0.4);
+      });
     } catch (e) { /* no sound */ }
   }
 
-  // ------------------------------------------------------------------ START, the zoom and back
+  // ------------------------------------------------------------------ START: zoom in, cross-fade into the game
   function start() {
     if (mode !== "intro") return;
     coinSound();
-    window.scrollTo({ top: 0, behavior: "auto" });
+    window.scrollTo(0, 0);
     introUi.classList.add("gone"); $("scrollHint").classList.add("gone");
-    mode = "zoom-in";
-    if (!arcade) { enterGame(); return; }
-    arcade.zoomIn((p) => { if (p > 0.82) flash.classList.add("on"); }, () => setTimeout(enterGame, reduced ? 0 : 140));
-  }
-  function enterGame() {
-    mode = "game";
     document.documentElement.style.overflow = "hidden";
-    gameMode.hidden = false;
+    // Lay the game layer out (still invisible) so the camera knows where to land.
+    gameMode.hidden = false; gameMode.classList.remove("show");
     fit();
-    newGame(false);
-    paused = false; view = "2D";
-    refreshButtons();
-    screenBox.classList.remove("power-off"); void screenBox.offsetWidth; screenBox.classList.add("power-on");
-    requestAnimationFrame(() => flash.classList.remove("on"));
+    // A fresh game for the player: its bricks pop in on the cabinet screen during the
+    // flight, and it waits to serve until a moment after the game layer is up.
+    newGame(false); paused = false; view = "2D"; refreshButtons();
+    game.serveTimer = ZOOM_SECONDS + FADE_MS / 1000 + 1.2;
+    mode = "zoom-in";
+    if (!arcade) { showGame(); return; }
+    arcade.zoomIn(canvasRect, (p) => { fx = 1 - p * p; }, showGame);
   }
+  function showGame() {
+    mode = "fade-in"; fx = 0;
+    gameMode.classList.add("show");
+    setTimeout(() => { if (mode === "fade-in") mode = "game"; }, FADE_MS);
+  }
+
+  // ------------------------------------------------------------------ back: cross-fade out, zoom out
   function exitGame() {
     if (mode !== "game") return;
-    mode = "zoom-out";
-    held.left = held.right = false; pointerX = null; dragging = null;
-    screenBox.classList.remove("power-on"); void screenBox.offsetWidth; screenBox.classList.add("power-off");
+    mode = "fade-out"; fx = 0;
+    held.left = held.right = false; pointerX = null; dragging = null; paused = false;
+    if (!game.attract) game.toggleAttract();          // the cabinet plays on by itself
+    game.popEvents();
+    if (arcade) arcade.holdAt(canvasRect);            // the 3D screen sits right under the canvas
+    gameMode.classList.remove("show");
     setTimeout(() => {
       gameMode.hidden = true;
       document.documentElement.style.overflow = "";
       setCanvasSize(960, 720);
-      newGame(true);
+      mode = "zoom-out";
       if (arcade) arcade.zoomOut(backToIntro); else backToIntro();
-    }, reduced ? 0 : 340);
+    }, FADE_MS);
   }
   function backToIntro() {
-    mode = "intro";
+    mode = "intro"; view = "2D"; introClock = 0;
     introUi.classList.remove("gone"); $("scrollHint").classList.remove("gone");
     $("start").focus({ preventScroll: true });
   }
@@ -131,7 +157,7 @@
       if (e.key === "Enter" && tag !== "button" && tag !== "a" && introVisible) { e.preventDefault(); start(); }
       return;
     }
-    if (mode !== "game") return;
+    if (mode !== "game") { if (e.key === " " || e.key.startsWith("Arrow")) e.preventDefault(); return; }
     if (tag === "button" && (e.key === " " || e.key === "Enter")) return;   // the button handles it
     let used = true;
     switch (e.key) {
@@ -204,28 +230,34 @@
   function frame(now) {
     const dt = Math.min((now - last) / 1000, 0.1);
     last = now;
-    const inGame = mode === "game";
-    if (!(inGame && paused)) {
-      const step = dt * (inGame ? speed : 1);
-      if (inGame) steer(step);
+    const playing = mode === "game";
+    if (!(playing && paused)) {
+      const step = dt * (playing ? speed : 1);
+      if (playing) steer(step);
       game.update(step);
       B.sync2D(scene2, game);
       B.sync3D(scene3, game, step);
     }
-    if (inGame) {
+    // What the screen shows: the player's view while the game layer is (nearly) up,
+    // otherwise the cabinet's attract loop (2D for 14 s, then 3D for 7 s).
+    const playerView = mode === "game" || mode === "fade-in" || mode === "fade-out" || mode === "zoom-in";
+    if (playerView) {
       if (view === "2D") B.draw2D(ctx, scene2, canvas.width, canvas.height);
       else B.draw3D(ctx, scene3, canvas.width, canvas.height, B.camera);
-      hud(dt);
-    } else if (arcade && (introVisible || mode !== "intro")) {
-      introClock += dt;                               // the cabinet shows 2D for 14 s, then 3D for 7 s
+    } else if (introVisible || mode !== "intro") {
+      introClock += dt;
       if (introClock % 21 > 14) {
         introCam.yaw = -25 + 25 * Math.sin(introClock * 0.5);
         B.draw3D(ctx, scene3, canvas.width, canvas.height, introCam);
       } else {
         B.draw2D(ctx, scene2, canvas.width, canvas.height);
       }
-      arcade.update(dt, game);
     }
+    if (mode !== "intro" && mode !== "zoom-out") hud(dt);
+    // The 3D hall renders whenever it can be seen (not behind the opaque game layer).
+    // Scanlines: gone while the screen is the game, back gradually while zooming out.
+    if (mode === "zoom-out") fx = Math.min(1, fx + dt / 1.8);
+    if (arcade && mode !== "game" && (introVisible || mode !== "intro")) arcade.update(dt, game, mode === "intro" ? 1 : fx);
     requestAnimationFrame(frame);
   }
   refreshButtons();
