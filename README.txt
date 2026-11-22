@@ -95,6 +95,8 @@ FILES (code/)
     figures.py        2D figures (Member 2), 3D figures (Member 4)
     raster.py         Bresenham, midpoint circle, scan-line fill        Member 2
     render2d.py       draws the 2D scene                                Member 2
+    hud2d.py          score + starfield drawn with Member 2's raster     Member 1
+                      algorithms on a 320x240 arcade-pixel grid (integration)
     game.py           game state, update(dt), collisions, score         Member 3
     anim2d.py         2D animation: game numbers -> node T . R . S      Member 3
     persist.py        JSON save / load, screenshot (optional)           Member 3
