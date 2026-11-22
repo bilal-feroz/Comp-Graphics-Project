@@ -25,3 +25,7 @@ Thumbs.db
 # Screenshots and settings written by the program
 screenshots/
 settings.json
+
+# Local deliverables and the video build (submitted on Moodle, not in the repo)
+submission/
+brag-output/
