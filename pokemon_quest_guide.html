@@ -1,0 +1,1156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pokemon Quest: Breakout 2D & Raster Guide (Member 2)</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Outfit:wght@400;600;700;800;900&family=JetBrains+Mono:wght@400;600;700&display=swap');
+
+    :root {
+      --pk-green: #2ecc71;
+      --pk-green-dark: #27ae60;
+      --pk-leaf: #58d68d;
+      --pk-cream: #fbf8eb;
+      --pk-brown: #795548;
+      --pk-gold: #f1c40f;
+      --pk-orange: #e67e22;
+      --pk-red: #e74c3c;
+      --pk-blue: #3498db;
+      --pk-dark: #1e272e;
+      --pk-surface: #2d3436;
+      --pk-card: #20262b;
+      --pk-border: #485460;
+    }
+
+    body {
+      font-family: 'Outfit', sans-serif;
+      background: #0f141a;
+      color: #ecf0f1;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+
+    .pixel-font {
+      font-family: 'Press Start 2P', monospace;
+    }
+
+    .mono-font {
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Custom Retro Pixel Borders */
+    .pixel-box {
+      border: 4px solid #34495e;
+      box-shadow: 4px 4px 0px #0a0e12;
+      border-radius: 8px;
+    }
+
+    .pixel-box-gold {
+      border: 4px solid var(--pk-gold);
+      box-shadow: 4px 4px 0px rgba(241, 196, 15, 0.4);
+      border-radius: 8px;
+    }
+
+    .pixel-box-green {
+      border: 4px solid var(--pk-green);
+      box-shadow: 4px 4px 0px rgba(46, 204, 113, 0.3);
+      border-radius: 8px;
+    }
+
+    .dialogue-box {
+      background: #1a232a;
+      border: 4px solid #58d68d;
+      border-radius: 12px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.1);
+      position: relative;
+    }
+
+    .dialogue-box::after {
+      content: '';
+      position: absolute;
+      top: -16px;
+      left: 60px;
+      border-width: 0 16px 16px 16px;
+      border-style: solid;
+      border-color: transparent transparent #58d68d transparent;
+    }
+
+    /* Dopamine animations */
+    @keyframes bounce-slow {
+      0%, 100% { transform: translateY(0px) rotate(0deg); }
+      50% { transform: translateY(-8px) rotate(2deg); }
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { box-shadow: 0 0 15px rgba(88, 214, 141, 0.4); }
+      50% { box-shadow: 0 0 30px rgba(88, 214, 141, 0.8); }
+    }
+
+    @keyframes wing-flap {
+      0%, 100% { transform: rotate(0deg); }
+      50% { transform: rotate(-15deg); }
+    }
+
+    .animate-rowlet {
+      animation: bounce-slow 3s infinite ease-in-out;
+    }
+
+    .animate-glow {
+      animation: pulse-glow 2s infinite ease-in-out;
+    }
+
+    /* Custom Checkbox */
+    .quest-check {
+      appearance: none;
+      width: 24px;
+      height: 24px;
+      border: 3px solid #58d68d;
+      border-radius: 6px;
+      background: #0f141a;
+      cursor: pointer;
+      display: inline-grid;
+      place-content: center;
+      transition: all 0.2s ease;
+    }
+
+    .quest-check:checked {
+      background: #2ecc71;
+      border-color: #f1c40f;
+    }
+
+    .quest-check:checked::before {
+      content: "✓";
+      color: #0f141a;
+      font-weight: 900;
+      font-size: 16px;
+    }
+
+    /* Tab active states */
+    .tab-btn.active {
+      background: #2ecc71;
+      color: #0f141a;
+      font-weight: bold;
+      border-color: #f1c40f;
+    }
+
+    /* Pixel grid */
+    .grid-cell {
+      aspect-ratio: 1;
+      background: #1e272e;
+      border: 1px solid #2d3436;
+      transition: background 0.15s ease;
+    }
+    .grid-cell.active-pixel {
+      background: #58d68d;
+      box-shadow: 0 0 8px #58d68d;
+    }
+    .grid-cell.circle-pixel {
+      background: #f1c40f;
+      box-shadow: 0 0 8px #f1c40f;
+    }
+    .grid-cell:hover {
+      background: #34495e;
+      cursor: pointer;
+    }
+
+    /* Toast Notification */
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: #2ecc71;
+      color: #0f141a;
+      padding: 14px 24px;
+      border-radius: 8px;
+      font-weight: bold;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+      border: 3px solid #f1c40f;
+      display: none;
+      z-index: 1000;
+      animation: bounce-slow 0.3s ease;
+    }
+
+    /* Confetti canvas */
+    #confetti-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 9999;
+    }
+  </style>
+</head>
+<body class="p-4 md:p-8 max-w-6xl mx-auto pb-32">
+
+  <canvas id="confetti-canvas"></canvas>
+  <div id="toast">⭐ XP Gained! Rowlet is thrilled!</div>
+
+  <!-- TOP HEADER / TRAINER HUD -->
+  <header class="bg-[#182129] border-4 border-[#34495e] rounded-2xl p-5 mb-8 shadow-2xl">
+    <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+      
+      <!-- Trainer & Rowlet Info -->
+      <div class="flex items-center gap-5">
+        <!-- Animated SVG Rowlet Head -->
+        <div class="relative w-20 h-20 flex-shrink-0 animate-rowlet">
+          <svg viewBox="0 0 100 100" class="w-full h-full filter drop-shadow-md">
+            <!-- Round Body -->
+            <circle cx="50" cy="50" r="45" fill="#e8dfcb" stroke="#3d372e" stroke-width="3"/>
+            <!-- Head Feathers / Leaves -->
+            <ellipse cx="50" cy="9" rx="8" ry="4" fill="#6bb872" stroke="#3d372e" stroke-width="1.5"/>
+            <!-- White Face Mask / Belly Discs -->
+            <ellipse cx="37" cy="48" rx="19" ry="24" fill="#ffffff" stroke="#3d372e" stroke-width="2"/>
+            <ellipse cx="63" cy="48" rx="19" ry="24" fill="#ffffff" stroke="#3d372e" stroke-width="2"/>
+            <!-- Eyes -->
+            <circle cx="36" cy="45" r="7.5" fill="#1e1e1e"/>
+            <circle cx="64" cy="45" r="7.5" fill="#1e1e1e"/>
+            <!-- Eye Highlights -->
+            <circle cx="38" cy="43" r="2.5" fill="#ffffff"/>
+            <circle cx="66" cy="43" r="2.5" fill="#ffffff"/>
+            <!-- Beak -->
+            <polygon points="50,47 43,56 57,56" fill="#f39c12" stroke="#3d372e" stroke-width="1.5"/>
+            <polygon points="50,47 46,51 54,51" fill="#fdfefe"/>
+            <!-- Leaf Bowtie (Rowlet Signature) -->
+            <path d="M50 67 C42 60 32 68 40 76 C46 80 50 72 50 72 Z" fill="#4caf50" stroke="#2e7d32" stroke-width="1.5"/>
+            <path d="M50 67 C58 60 68 68 60 76 C54 80 50 72 50 72 Z" fill="#66bb6a" stroke="#2e7d32" stroke-width="1.5"/>
+            <circle cx="50" cy="69" r="3" fill="#ff7043"/>
+            <!-- Feet -->
+            <ellipse cx="38" cy="94" rx="7" ry="4" fill="#f39c12" stroke="#3d372e" stroke-width="1.5"/>
+            <ellipse cx="62" cy="94" rx="7" ry="4" fill="#f39c12" stroke="#3d372e" stroke-width="1.5"/>
+          </svg>
+          <span class="absolute -bottom-1 -right-1 bg-green-500 text-slate-900 text-[10px] font-black px-1.5 py-0.5 rounded-full border border-white">Lv.25</span>
+        </div>
+
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="pixel-font text-xs text-yellow-400">POKEMON QUEST</span>
+            <span class="bg-emerald-900 text-emerald-300 text-xs px-2 py-0.5 rounded font-mono font-bold">MEMBER 2</span>
+          </div>
+          <h1 class="text-2xl md:text-3xl font-black tracking-tight text-white mt-1">
+            Breakout 2D & Rasterization Adventure
+          </h1>
+          <p class="text-slate-400 text-xs md:text-sm mt-0.5">
+            Your assignment mission: <span class="text-emerald-400 font-semibold">figures.py (2D)</span>, <span class="text-emerald-400 font-semibold">raster.py</span>, & <span class="text-emerald-400 font-semibold">render2d.py</span>.
+          </p>
+        </div>
+      </div>
+
+      <!-- Audio & Reset Controls -->
+      <div class="flex items-center gap-3">
+        <button id="sfx-toggle" onclick="toggleAudio()" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 border-2 border-slate-600 rounded-xl text-xs font-bold text-yellow-300 flex items-center gap-1.5 transition">
+          <span id="sfx-icon">🔊</span> SFX: <span id="sfx-text">ON</span>
+        </button>
+        <button onclick="triggerConfetti()" class="px-3 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:brightness-110 text-slate-950 rounded-xl text-xs font-black shadow-lg flex items-center gap-1 transition">
+          ✨ Dopamine Boost
+        </button>
+      </div>
+    </div>
+
+    <!-- XP BAR & GYM BADGES -->
+    <div class="mt-6 pt-5 border-t border-slate-800 grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+      <!-- XP Progress -->
+      <div class="md:col-span-2">
+        <div class="flex justify-between items-center text-xs mb-1.5">
+          <span class="pixel-font text-emerald-400 font-bold">EXP LEVEL: <span id="trainer-level">LEVEL 1 (ROOKIE)</span></span>
+          <span class="mono-font text-yellow-400 font-bold"><span id="current-xp">0</span> / 5000 XP</span>
+        </div>
+        <div class="w-full h-4 bg-slate-900 rounded-full border-2 border-slate-700 overflow-hidden relative">
+          <div id="xp-fill" class="h-full bg-gradient-to-r from-emerald-500 via-green-400 to-yellow-400 w-0 transition-all duration-500 ease-out"></div>
+        </div>
+      </div>
+
+      <!-- Badges Tray -->
+      <div class="flex items-center justify-around bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+        <div id="badge-1" class="grayscale opacity-40 text-center transition-all duration-300" title="Git & Branch Badge">
+          <div class="text-xl">🪙</div>
+          <div class="text-[9px] font-bold text-slate-400">Git</div>
+        </div>
+        <div id="badge-2" class="grayscale opacity-40 text-center transition-all duration-300" title="Bresenham & Midpoint Circle Badge">
+          <div class="text-xl">🍃</div>
+          <div class="text-[9px] font-bold text-slate-400">Raster</div>
+        </div>
+        <div id="badge-3" class="grayscale opacity-40 text-center transition-all duration-300" title="2D Figures & Models Badge">
+          <div class="text-xl">🎨</div>
+          <div class="text-[9px] font-bold text-slate-400">Shapes</div>
+        </div>
+        <div id="badge-4" class="grayscale opacity-40 text-center transition-all duration-300" title="Render2D & Mouse Pick Badge">
+          <div class="text-xl">🕹️</div>
+          <div class="text-[9px] font-bold text-slate-400">Render2D</div>
+        </div>
+        <div id="badge-5" class="grayscale opacity-40 text-center transition-all duration-300" title="Pull Request Champion Trophy">
+          <div class="text-xl">🏆</div>
+          <div class="text-[9px] font-bold text-slate-400">PR Done</div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- ROWLET'S MASTER SPEECH BUBBLE -->
+  <section class="dialogue-box p-6 mb-8">
+    <div class="flex items-start gap-4">
+      <div class="hidden sm:block text-4xl animate-bounce">🦉</div>
+      <div class="flex-1">
+        <div class="flex items-center justify-between mb-2">
+          <span class="pixel-font text-xs text-emerald-400">ROWLET CO-PILOT SPEAKS:</span>
+          <span class="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded font-mono">Status: Ready to help!</span>
+        </div>
+        <p id="rowlet-dialogue" class="text-slate-200 text-sm md:text-base leading-relaxed">
+          "Hoo-hoot! Don't stress, friend! You have role #2 in the project: <strong class="text-yellow-400">2D Scene, Raster Algorithms & figures</strong>.
+          You don't need to know CLI or complex math beforehand. I have prepared two paths for you: 
+          <span class="text-emerald-400 font-bold">1) Slave Agent Auto-Pilot</span> (copy-paste my magic prompts so the AI writes 100% of the code & tests for you) or 
+          <span class="text-yellow-400 font-bold">2) Pokémon Trainer Mode</span> (learn how it works so you crush your professor's oral defense!). Let's go!"
+        </p>
+      </div>
+    </div>
+
+    <!-- QUICK PATH CHANGER -->
+    <div class="mt-4 pt-4 border-t border-slate-700/60 flex flex-wrap gap-3">
+      <button onclick="setPlaystyle('agent')" id="btn-agent-mode" class="tab-btn active px-4 py-2 rounded-xl text-xs font-bold border-2 border-slate-600 transition flex items-center gap-2">
+        🤖 Mode A: AI Agent Does Everything (Zero Stress)
+      </button>
+      <button onclick="setPlaystyle('learn')" id="btn-learn-mode" class="tab-btn px-4 py-2 bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-bold border-2 border-slate-600 transition flex items-center gap-2">
+        🧠 Mode B: Explain Like I'm 5 (Pass the Q&A Defense)
+      </button>
+      <button onclick="scrollToSection('git-section')" class="px-4 py-2 bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-bold border-2 border-slate-600 transition flex items-center gap-2 ml-auto">
+        💻 GitHub CLI Setup
+      </button>
+    </div>
+  </section>
+
+  <!-- ========================================================================= -->
+  <!-- TAB CONTENT 1: AI AGENT AUTO-PILOT PATH -->
+  <!-- ========================================================================= -->
+  <div id="path-agent-container" class="space-y-8">
+    <div class="bg-gradient-to-r from-emerald-950/60 to-slate-900 border-2 border-emerald-500/50 rounded-2xl p-6">
+      <div class="flex items-center gap-3 mb-2">
+        <span class="text-2xl">⚡</span>
+        <h2 class="text-xl font-black text-emerald-400">The "Slave Agent" Auto-Pilot Command Center</h2>
+      </div>
+      <p class="text-sm text-slate-300 mb-6">
+        Since you want me to do the heavy coding and test execution, here are the exact copy-paste battle prompts.
+        Copy each prompt one by one, send it to me right here in chat, and I will write the code, verify the math, and run tests!
+      </p>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+        <!-- Command Card 1 -->
+        <div class="bg-[#141b22] border border-slate-700 rounded-xl p-4 flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <span class="pixel-font text-[10px] text-yellow-400">PHASE 1</span>
+              <span class="text-[10px] font-mono bg-slate-800 px-2 py-0.5 rounded text-emerald-400">raster.py</span>
+            </div>
+            <h3 class="font-bold text-white text-sm">Write Raster Algorithms</h3>
+            <p class="text-xs text-slate-400 mt-1">Implements Bresenham line (all 8 octants), Midpoint circle, and Scanline polygon fill.</p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
+            <span class="text-[11px] text-slate-500 font-mono">1 Click Copy</span>
+            <button onclick="copyPrompt(1)" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 rounded-lg text-xs font-black transition flex items-center gap-1">
+              📋 Copy Prompt
+            </button>
+          </div>
+        </div>
+
+        <!-- Command Card 2 -->
+        <div class="bg-[#141b22] border border-slate-700 rounded-xl p-4 flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <span class="pixel-font text-[10px] text-yellow-400">PHASE 2</span>
+              <span class="text-[10px] font-mono bg-slate-800 px-2 py-0.5 rounded text-emerald-400">figures.py (2D)</span>
+            </div>
+            <h3 class="font-bold text-white text-sm">Create All 2D Shape Vertices</h3>
+            <p class="text-xs text-slate-400 mt-1">Generates paddle, ball, UFO body/dome/lights, hearts for lives, cabinet, 7-segment score digits.</p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
+            <span class="text-[11px] text-slate-500 font-mono">1 Click Copy</span>
+            <button onclick="copyPrompt(2)" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 rounded-lg text-xs font-black transition flex items-center gap-1">
+              📋 Copy Prompt
+            </button>
+          </div>
+        </div>
+
+        <!-- Command Card 3 -->
+        <div class="bg-[#141b22] border border-slate-700 rounded-xl p-4 flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <span class="pixel-font text-[10px] text-yellow-400">PHASE 3</span>
+              <span class="text-[10px] font-mono bg-slate-800 px-2 py-0.5 rounded text-emerald-400">render2d.py</span>
+            </div>
+            <h3 class="font-bold text-white text-sm">Build 2D Scene & Mouse Pick</h3>
+            <p class="text-xs text-slate-400 mt-1">Full scene graph, letterbox 4:3 projection, filled polygons, arcade starfield, and raycasting pick.</p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
+            <span class="text-[11px] text-slate-500 font-mono">1 Click Copy</span>
+            <button onclick="copyPrompt(3)" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 rounded-lg text-xs font-black transition flex items-center gap-1">
+              📋 Copy Prompt
+            </button>
+          </div>
+        </div>
+
+        <!-- Command Card 4 -->
+        <div class="bg-[#141b22] border border-slate-700 rounded-xl p-4 flex flex-col justify-between">
+          <div>
+            <div class="flex justify-between items-center mb-2">
+              <span class="pixel-font text-[10px] text-yellow-400">PHASE 4</span>
+              <span class="text-[10px] font-mono bg-slate-800 px-2 py-0.5 rounded text-emerald-400">test_graphics.py</span>
+            </div>
+            <h3 class="font-bold text-white text-sm">Unskip & Pass All Unit Tests</h3>
+            <p class="text-xs text-slate-400 mt-1">Implements Member 2's unittests for Bresenham, Midpoint circle, and screen-to-world mapping.</p>
+          </div>
+          <div class="mt-4 pt-3 border-t border-slate-800 flex items-center justify-between">
+            <span class="text-[11px] text-slate-500 font-mono">1 Click Copy</span>
+            <button onclick="copyPrompt(4)" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 rounded-lg text-xs font-black transition flex items-center gap-1">
+              📋 Copy Prompt
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- MASTER ONE-SHOT COMBO -->
+      <div class="mt-6 p-4 bg-gradient-to-r from-amber-950/50 to-slate-900 border-2 border-yellow-500/60 rounded-xl flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div>
+          <span class="pixel-font text-xs text-yellow-400">ULTIMATE MASTER COMBO (DO EVERYTHING AT ONCE)</span>
+          <p class="text-xs text-slate-300 mt-0.5">Want me to code all 3 files, run unit tests, and prepare your branch in one single go?</p>
+        </div>
+        <button onclick="copyPrompt(5)" class="px-5 py-2.5 bg-yellow-400 hover:bg-yellow-300 text-slate-950 rounded-xl text-xs font-black shadow-lg transition flex items-center gap-2 flex-shrink-0">
+          🌟 Copy "Do It All" Prompt
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================================================= -->
+  <!-- STEP-BY-STEP QUEST WALKTHROUGH (DOPAMINE & LEARNING) -->
+  <!-- ========================================================================= -->
+
+  <!-- QUEST 1: PALLET TOWN - GIT & CLI FOR BEGINNERS -->
+  <section id="git-section" class="mt-12 bg-[#182129] border-2 border-slate-700 rounded-2xl p-6 shadow-xl">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
+      <div class="flex items-center gap-3">
+        <input type="checkbox" id="check-q1" class="quest-check" onchange="toggleQuest(1, 1000, 'badge-1')">
+        <div>
+          <span class="pixel-font text-[10px] text-yellow-400">QUEST 1 • PALLET TOWN</span>
+          <h2 class="text-xl font-black text-white">GitHub CLI & Project Setup (Zero Knowledge Required)</h2>
+        </div>
+      </div>
+      <span class="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-3 py-1 rounded-full">+1000 XP</span>
+    </div>
+
+    <!-- Beginner Explanation Box -->
+    <div class="bg-slate-900/90 border border-slate-800 rounded-xl p-4 mb-6 text-sm text-slate-300">
+      <div class="font-bold text-emerald-400 mb-1 flex items-center gap-1.5">
+        <span>🦉 Rowlet's Beginner Translation:</span>
+      </div>
+      <ul class="list-disc list-inside space-y-1 text-xs text-slate-300">
+        <li><strong>Repository (Repo):</strong> The shared online folder where all 4 team members put their code (<code class="text-yellow-300">bilal-feroz/Comp-Graphics-Project.git</code>).</li>
+        <li><strong>Branch:</strong> Your personal sandbox timeline! You make one called <code class="text-emerald-300 font-mono">m2-raster-2d</code> so you can work safely without breaking your friends' code.</li>
+        <li><strong>Pull Request (PR):</strong> An official invitation saying: <em>"Hey team! I finished Role 2 (Raster & 2D). Here are my changes, please review and merge into main!"</em></li>
+      </ul>
+    </div>
+
+    <!-- Step by Step Commands -->
+    <div class="space-y-4">
+      
+      <!-- Step 1 -->
+      <div class="bg-[#12171d] p-4 rounded-xl border border-slate-800">
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-xs font-bold text-slate-300">Step 1: Open PowerShell or Terminal & Go to your Workspace</span>
+          <button onclick="copyCommand('cd-workspace')" class="text-xs text-emerald-400 hover:text-emerald-300 font-mono">Copy</button>
+        </div>
+        <p class="text-xs text-slate-400 mb-2">We already unpacked the starter files into your scratch folder! You can run:</p>
+        <pre id="cd-workspace" class="mono-font text-xs bg-black/60 p-3 rounded-lg text-emerald-300 overflow-x-auto">cd C:\Users\Alpha\.gemini\antigravity\scratch\Comp-Graphics-Project-main</pre>
+      </div>
+
+      <!-- Step 2 -->
+      <div class="bg-[#12171d] p-4 rounded-xl border border-slate-800">
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-xs font-bold text-slate-300">Step 2: Initialize Git and Create Your Member 2 Branch</span>
+          <button onclick="copyCommand('git-branch-cmd')" class="text-xs text-emerald-400 hover:text-emerald-300 font-mono">Copy</button>
+        </div>
+        <p class="text-xs text-slate-400 mb-2">According to <code class="text-yellow-400">CONTRIBUTING.md</code>, member 2's branch name must follow <code class="text-yellow-400">m2-&lt;feature&gt;</code>:</p>
+        <pre id="git-branch-cmd" class="mono-font text-xs bg-black/60 p-3 rounded-lg text-emerald-300 overflow-x-auto">git checkout -b m2-raster-2d</pre>
+      </div>
+
+      <!-- Step 3 -->
+      <div class="bg-[#12171d] p-4 rounded-xl border border-slate-800">
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-xs font-bold text-slate-300">Step 3: Connect to GitHub via CLI (If using `gh`)</span>
+          <button onclick="copyCommand('gh-auth-cmd')" class="text-xs text-emerald-400 hover:text-emerald-300 font-mono">Copy</button>
+        </div>
+        <p class="text-xs text-slate-400 mb-2">GitHub CLI makes opening PRs effortless! Just run this once and select "GitHub.com" -&gt; "HTTPS" -&gt; "Login with web browser":</p>
+        <pre id="gh-auth-cmd" class="mono-font text-xs bg-black/60 p-3 rounded-lg text-emerald-300 overflow-x-auto">gh auth login</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- QUEST 2: FOREST OF RASTERIZATION (RASTER.PY) -->
+  <section class="mt-12 bg-[#182129] border-2 border-slate-700 rounded-2xl p-6 shadow-xl">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
+      <div class="flex items-center gap-3">
+        <input type="checkbox" id="check-q2" class="quest-check" onchange="toggleQuest(2, 1000, 'badge-2')">
+        <div>
+          <span class="pixel-font text-[10px] text-yellow-400">QUEST 2 • VIRIDIAN FOREST</span>
+          <h2 class="text-xl font-black text-white">The Three Sacred Raster Algorithms (`raster.py`)</h2>
+        </div>
+      </div>
+      <span class="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-3 py-1 rounded-full">+1000 XP</span>
+    </div>
+
+    <!-- Interactive Pixel Grid Simulator -->
+    <div class="bg-[#131920] border border-slate-800 rounded-xl p-5 mb-6">
+      <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+        <div>
+          <h3 class="font-bold text-emerald-400 text-sm flex items-center gap-2">
+            <span>🎮</span> Interactive Bresenham & Circle Pixel Playground
+          </h3>
+          <p class="text-xs text-slate-400">Click anywhere on the grid or hit test buttons to see integer pixels light up!</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="demoBresenham()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold rounded-lg text-xs">
+            ▶ Test Line (0,0) → (5,2)
+          </button>
+          <button onclick="demoCircle()" class="px-3 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-slate-950 font-bold rounded-lg text-xs">
+            ▶ Test Midpoint Circle
+          </button>
+          <button onclick="clearGrid()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs">
+            Clear
+          </button>
+        </div>
+      </div>
+
+      <!-- 16x16 Pixel Grid Container -->
+      <div id="pixel-grid" class="grid grid-cols-16 gap-0.5 max-w-md mx-auto bg-black p-2 rounded-lg border-2 border-slate-700 shadow-inner">
+        <!-- Cells generated by JS -->
+      </div>
+      <div id="pixel-output" class="text-center text-xs font-mono text-emerald-300 mt-3 h-5">
+        Click a button above to run algorithm simulation!
+      </div>
+    </div>
+
+    <!-- Algorithm Explanations -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+
+      <!-- Algo 1 -->
+      <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-emerald-400 font-bold text-sm">1. Bresenham's Line</span>
+        </div>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Draws lines using <strong class="text-slate-200">only integer addition and subtraction</strong> (no slow float division!).
+        </p>
+        <div class="mt-3 bg-black/40 p-2.5 rounded font-mono text-[11px] text-emerald-300">
+          dx = abs(x1 - x0)<br>
+          dy = abs(y1 - y0)<br>
+          decision d = 2*dy - dx<br>
+          if d &gt;= 0: y += sy, d -= 2*dx<br>
+          d += 2*dy
+        </div>
+        <p class="text-[11px] text-amber-300 mt-2">✨ Covers all 8 octants (steep &amp; shallow, any direction)!</p>
+      </div>
+
+      <!-- Algo 2 -->
+      <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-yellow-400 font-bold text-sm">2. Midpoint Circle</span>
+        </div>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Uses <strong class="text-slate-200">8-way symmetry</strong>: only calculates 1/8th of the circle, then mirrors it to all 8 octants!
+        </p>
+        <div class="mt-3 bg-black/40 p-2.5 rounded font-mono text-[11px] text-yellow-300">
+          d = 1 - r<br>
+          while x &lt;= y:<br>
+          &nbsp;&nbsp;plot(xc±x, yc±y), plot(xc±y, yc±x)<br>
+          &nbsp;&nbsp;if d &lt; 0: d += 2*x + 3<br>
+          &nbsp;&nbsp;else: d += 2*(x - y) + 5; y -= 1<br>
+          &nbsp;&nbsp;x += 1
+        </div>
+        <p class="text-[11px] text-emerald-300 mt-2">✨ Every point stays within 1 pixel of radius r.</p>
+      </div>
+
+      <!-- Algo 3 -->
+      <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+        <div class="flex items-center gap-2 mb-2">
+          <span class="text-blue-400 font-bold text-sm">3. Scan-line Polygon Fill</span>
+        </div>
+        <p class="text-xs text-slate-400 leading-relaxed">
+          Fills polygons with horizontal spans <code class="text-white">[(y, x_start, x_end), ...]</code> using Edge Tables.
+        </p>
+        <div class="mt-3 bg-black/40 p-2.5 rounded font-mono text-[11px] text-blue-300">
+          For each scanline y:<br>
+          &nbsp;&nbsp;Find edge intersections<br>
+          &nbsp;&nbsp;Sort x intersections<br>
+          &nbsp;&nbsp;Pair them (x0, x1), (x2, x3)<br>
+          &nbsp;&nbsp;Emit span (y, x_left, x_right)
+        </div>
+        <p class="text-[11px] text-purple-300 mt-2">✨ Renders solid bricks &amp; arcade cabinets!</p>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- QUEST 3: CELADON CITY - 2D FIGURES (FIGURES.PY) -->
+  <section class="mt-12 bg-[#182129] border-2 border-slate-700 rounded-2xl p-6 shadow-xl">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
+      <div class="flex items-center gap-3">
+        <input type="checkbox" id="check-q3" class="quest-check" onchange="toggleQuest(3, 1000, 'badge-3')">
+        <div>
+          <span class="pixel-font text-[10px] text-yellow-400">QUEST 3 • CELADON CITY</span>
+          <h2 class="text-xl font-black text-white">2D Shapes &amp; Model Coordinates (`figures.py`)</h2>
+        </div>
+      </div>
+      <span class="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-3 py-1 rounded-full">+1000 XP</span>
+    </div>
+
+    <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 mb-6 text-xs text-slate-300 leading-relaxed">
+      <strong class="text-yellow-400">Golden Rule of Computer Graphics:</strong> Every shape in <code class="text-emerald-400">figures.py</code> must be defined in its 
+      <strong>own MODEL coordinates centred at the origin (0, 0)</strong>! We never hardcode world positions in figures; their <code class="text-emerald-400">Node</code> transform places and rotates them!
+    </div>
+
+    <!-- Shapes Table -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div class="bg-black/40 border border-slate-800 p-3 rounded-xl text-center">
+        <div class="text-2xl mb-1">🧱</div>
+        <div class="font-bold text-xs text-white">Brick</div>
+        <div class="text-[10px] text-slate-400">Centered rectangle w=1.8, h=0.6</div>
+      </div>
+      <div class="bg-black/40 border border-slate-800 p-3 rounded-xl text-center">
+        <div class="text-2xl mb-1">🏓</div>
+        <div class="font-bold text-xs text-white">Rounded Paddle</div>
+        <div class="text-[10px] text-slate-400">Body + 2 semicircular caps</div>
+      </div>
+      <div class="bg-black/40 border border-slate-800 p-3 rounded-xl text-center">
+        <div class="text-2xl mb-1">🛸</div>
+        <div class="font-bold text-xs text-white">UFO Body &amp; Dome</div>
+        <div class="text-[10px] text-slate-400">Flattened ellipse + dome arc</div>
+      </div>
+      <div class="bg-black/40 border border-slate-800 p-3 rounded-xl text-center">
+        <div class="text-2xl mb-1">❤️</div>
+        <div class="font-bold text-xs text-white">Heart (Lives)</div>
+        <div class="text-[10px] text-slate-400">2 top lobes meeting at bottom tip</div>
+      </div>
+      <div class="bg-black/40 border border-slate-800 p-3 rounded-xl text-center">
+        <div class="text-2xl mb-1">🕹️</div>
+        <div class="font-bold text-xs text-white">Joystick &amp; Knob</div>
+        <div class="text-[10px] text-slate-400">Base trapezoid, shaft, round knob</div>
+      </div>
+      <div class="bg-black/40 border border-slate-800 p-3 rounded-xl text-center">
+        <div class="text-2xl mb-1">📟</div>
+        <div class="font-bold text-xs text-white">7-Segment Digit</div>
+        <div class="text-[10px] text-slate-400">7 individual rectangular segments</div>
+      </div>
+      <div class="bg-black/40 border border-slate-800 p-3 rounded-xl text-center">
+        <div class="text-2xl mb-1">📺</div>
+        <div class="font-bold text-xs text-white">Cabinet Frame</div>
+        <div class="text-[10px] text-slate-400">Beveled retro arcade bezel</div>
+      </div>
+      <div class="bg-black/40 border border-slate-800 p-3 rounded-xl text-center">
+        <div class="text-2xl mb-1">✨</div>
+        <div class="font-bold text-xs text-white">Starfield Points</div>
+        <div class="text-[10px] text-slate-400">GL_POINTS background backdrop</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- QUEST 4: CINNABAR ISLAND - RENDER2D & PICKING (RENDER2D.PY) -->
+  <section class="mt-12 bg-[#182129] border-2 border-slate-700 rounded-2xl p-6 shadow-xl">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
+      <div class="flex items-center gap-3">
+        <input type="checkbox" id="check-q4" class="quest-check" onchange="toggleQuest(4, 1000, 'badge-4')">
+        <div>
+          <span class="pixel-font text-[10px] text-yellow-400">QUEST 4 • CINNABAR ISLAND</span>
+          <h2 class="text-xl font-black text-white">The 2D Engine &amp; Inverse Matrix Mouse Picking (`render2d.py`)</h2>
+        </div>
+      </div>
+      <span class="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-3 py-1 rounded-full">+1000 XP</span>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+      <!-- Aspect Ratio Letterboxing -->
+      <div class="bg-slate-900 p-5 rounded-xl border border-slate-800">
+        <h3 class="font-bold text-white text-sm mb-2 flex items-center gap-2">
+          <span>📐</span> 1. Letterbox (Keep 4:3 Aspect Ratio)
+        </h3>
+        <p class="text-xs text-slate-400 leading-relaxed mb-3">
+          When the user resizes the window, the game world (-10 to 10, -7.5 to 7.5) should <strong class="text-slate-200">never stretch or distort</strong>!
+          We calculate the letterbox viewport:
+        </p>
+        <pre class="mono-font text-[11px] bg-black/60 p-3 rounded text-emerald-300 overflow-x-auto">
+aspect = 4.0 / 3.0
+win_aspect = width / height
+if win_aspect &gt; aspect:
+    vp_w = int(height * aspect)
+    glViewport((width - vp_w) // 2, 0, vp_w, height)
+else:
+    vp_h = int(width / aspect)
+    glViewport(0, (height - vp_h) // 2, width, vp_h)</pre>
+      </div>
+
+      <!-- Mouse Picking with Inverse Matrix -->
+      <div class="bg-slate-900 p-5 rounded-xl border border-slate-800">
+        <h3 class="font-bold text-white text-sm mb-2 flex items-center gap-2">
+          <span>🎯</span> 2. Click-to-Select (Mouse Picking)
+        </h3>
+        <p class="text-xs text-slate-400 leading-relaxed mb-3">
+          How do we know which object you clicked? We invert the object's transform to bring the mouse click into the object's own model space!
+        </p>
+        <ol class="list-decimal list-inside text-xs text-slate-300 space-y-1">
+          <li>Convert mouse pixel <code class="text-yellow-300">(px, py)</code> to world coords <code class="text-yellow-300">(wx, wy)</code>.</li>
+          <li>For each node: <code class="text-emerald-300">inv_M = matrices.inverse2(node.world())</code>.</li>
+          <li>Transform world click into model coords: <code class="text-emerald-300">(mx, my) = apply2(inv_M, [(wx, wy)])[0]</code>.</li>
+          <li>Point-in-polygon raycasting test against <code class="text-white">node.figure</code>!</li>
+        </ol>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- QUEST 5: INDIGO PLATEAU - UNIT TESTS & PR TIME! -->
+  <section class="mt-12 bg-[#182129] border-2 border-slate-700 rounded-2xl p-6 shadow-xl">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4 mb-6">
+      <div class="flex items-center gap-3">
+        <input type="checkbox" id="check-q5" class="quest-check" onchange="toggleQuest(5, 1000, 'badge-5')">
+        <div>
+          <span class="pixel-font text-[10px] text-yellow-400">QUEST 5 • INDIGO PLATEAU (CHAMPION)</span>
+          <h2 class="text-xl font-black text-white">Pass Tests &amp; Open the Team Pull Request</h2>
+        </div>
+      </div>
+      <span class="text-xs font-mono font-bold text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-3 py-1 rounded-full">+1000 XP</span>
+    </div>
+
+    <div class="space-y-6">
+
+      <!-- Run Unit Tests -->
+      <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-xs font-bold text-white">Run the Team Unit Tests</span>
+          <button onclick="copyCommand('run-test-cmd')" class="text-xs text-emerald-400 hover:text-emerald-300 font-mono">Copy</button>
+        </div>
+        <p class="text-xs text-slate-400 mb-2">Member 2 unskips the 3 tests in <code class="text-yellow-400">TestRaster</code>. All tests must pass before the PR:</p>
+        <pre id="run-test-cmd" class="mono-font text-xs bg-black/60 p-3 rounded-lg text-emerald-300 overflow-x-auto">cd code; python -m unittest -v</pre>
+      </div>
+
+      <!-- Git Commit & Push -->
+      <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-xs font-bold text-white">Commit Your Changes and Push</span>
+          <button onclick="copyCommand('git-push-cmd')" class="text-xs text-emerald-400 hover:text-emerald-300 font-mono">Copy</button>
+        </div>
+        <pre id="git-push-cmd" class="mono-font text-xs bg-black/60 p-3 rounded-lg text-emerald-300 overflow-x-auto">git add code/raster.py code/figures.py code/render2d.py code/test_graphics.py
+git commit -m "feat(m2): implement raster algorithms, 2d figures, and 2d renderer"
+git push -u origin m2-raster-2d</pre>
+      </div>
+
+      <!-- Copy Pull Request Description -->
+      <div class="bg-slate-900 p-4 rounded-xl border border-slate-800">
+        <div class="flex justify-between items-center mb-1">
+          <span class="text-xs font-bold text-white">Pre-Filled Pull Request Template (Ready to paste on GitHub)</span>
+          <button onclick="copyCommand('pr-body-text')" class="px-3 py-1 bg-yellow-400 hover:bg-yellow-300 text-slate-950 font-bold rounded text-xs">Copy PR Description</button>
+        </div>
+        <pre id="pr-body-text" class="mono-font text-[11px] bg-black/60 p-3 rounded-lg text-slate-300 overflow-x-auto whitespace-pre-wrap">## What this PR adds
+
+Implements Member 2's core deliverables for the 2D Breakout Arcade World:
+- Raster algorithms in `raster.py` (Bresenham line for all octants, Midpoint circle, Scanline polygon fill)
+- 2D figures in `figures.py` (rounded paddle, ball, UFO body/dome/lights, hearts for lives, 7-segment digits, cabinet frame)
+- 2D scene renderer in `render2d.py` (4:3 aspect ratio letterboxing, filled polygon rendering, and mouse pick using inverse world transforms)
+- Unskipped and passed all 3 Member 2 unit tests in `test_graphics.py`
+
+## Checklist (definition of done)
+
+- [x] I merged `main` into my branch and `python -m unittest` passes (run from `code/`)
+- [x] `python main.py` runs and nothing in the status bar turns red
+- [x] No `glTranslatef` / `glRotatef` / `glScalef` on objects (only `matrices.py` + `glMultMatrixf`)
+- [x] `game.py` has no OpenGL calls; renderers only read the game state
+- [x] Animation uses `dt` (no frame counting, no `sleep`)
+- [x] Code from a tutorial or AI tool has a comment naming the source
+- [x] My report paragraph and screenshot for this feature are written
+
+## Reviewer
+
+Rotation: M1 reviews M2. Approving means you can explain this code in the Q&A.</pre>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- PROFESSOR'S DEFENSE CHEAT SHEET (Q&A FLASHCARDS) -->
+  <section class="mt-12 bg-gradient-to-b from-[#1c242d] to-[#141b22] border-4 border-yellow-500/40 rounded-2xl p-6 shadow-2xl">
+    <div class="flex items-center gap-3 mb-4">
+      <span class="text-3xl">🎓</span>
+      <div>
+        <span class="pixel-font text-[10px] text-yellow-400">DEFENSE SURVIVAL KIT</span>
+        <h2 class="text-xl font-black text-white">The Professor's Oral Q&amp;A Cheat Sheet</h2>
+      </div>
+    </div>
+    <p class="text-xs text-slate-300 mb-6">
+      When presenting to the professor or your team reviewer (Member 1), click each question to reveal your exact winning answer:
+    </p>
+
+    <div class="space-y-3">
+      <!-- Q1 -->
+      <details class="group bg-slate-900 border border-slate-700 rounded-xl p-3 cursor-pointer">
+        <summary class="font-bold text-sm text-yellow-300 flex justify-between items-center">
+          <span>Q1: "Why does Bresenham's algorithm use only integer arithmetic?"</span>
+          <span class="text-slate-500 group-open:rotate-180 transition">▼</span>
+        </summary>
+        <p class="text-xs text-slate-300 mt-2.5 pt-2 border-t border-slate-800 leading-relaxed">
+          <strong>Answer:</strong> Floating-point division and rounding are computationally expensive on early graphics hardware. Bresenham reformulates the line equation into an integer decision variable <code class="text-emerald-400">d = 2Δy - Δx</code>. Because each step only does addition and multiplication by 2 (bit-shift), it runs blazing fast directly in hardware or rasterizers!
+        </p>
+      </details>
+
+      <!-- Q2 -->
+      <details class="group bg-slate-900 border border-slate-700 rounded-xl p-3 cursor-pointer">
+        <summary class="font-bold text-sm text-yellow-300 flex justify-between items-center">
+          <span>Q2: "Why does the Midpoint Circle algorithm only calculate 1/8th of the circle?"</span>
+          <span class="text-slate-500 group-open:rotate-180 transition">▼</span>
+        </summary>
+        <p class="text-xs text-slate-300 mt-2.5 pt-2 border-t border-slate-800 leading-relaxed">
+          <strong>Answer:</strong> A circle possesses <strong>8-way symmetry</strong>. If we calculate the arc from <code class="text-emerald-400">x=0</code> to <code class="text-emerald-400">x=y</code> (one octant, 45 degrees), every point <code class="text-emerald-400">(x, y)</code> can be mirrored to 7 other points by flipping signs and swapping coordinates: <code class="text-emerald-400">(±x, ±y)</code> and <code class="text-emerald-400">(±y, ±x)</code>. This saves 87.5% of the math!
+        </p>
+      </details>
+
+      <!-- Q3 -->
+      <details class="group bg-slate-900 border border-slate-700 rounded-xl p-3 cursor-pointer">
+        <summary class="font-bold text-sm text-yellow-300 flex justify-between items-center">
+          <span>Q3: "How does mouse click-to-select (picking) work without using OpenGL selection buffer?"</span>
+          <span class="text-slate-500 group-open:rotate-180 transition">▼</span>
+        </summary>
+        <p class="text-xs text-slate-300 mt-2.5 pt-2 border-t border-slate-800 leading-relaxed">
+          <strong>Answer:</strong> We convert the mouse screen pixel to a 2D world coordinate using the viewport and orthographic projection bounds. Then, for each node in the scene graph, we take the world point and multiply it by <code class="text-emerald-400">inverse2(node.world())</code>. This maps the mouse click back into the object's local model coordinate system, where doing a simple point-in-polygon ray casting check determines if the object was clicked!
+        </p>
+      </details>
+
+      <!-- Q4 -->
+      <details class="group bg-slate-900 border border-slate-700 rounded-xl p-3 cursor-pointer">
+        <summary class="font-bold text-sm text-yellow-300 flex justify-between items-center">
+          <span>Q4: "Why do we avoid glTranslate / glRotate on objects?"</span>
+          <span class="text-slate-500 group-open:rotate-180 transition">▼</span>
+        </summary>
+        <p class="text-xs text-slate-300 mt-2.5 pt-2 border-t border-slate-800 leading-relaxed">
+          <strong>Answer:</strong> The course requirement mandates showing that we understand the underlying transformation math. We compute hierarchical transformations in Python using our own 3x3 and 4x4 matrix multiplication functions in <code class="text-emerald-400">matrices.py</code>, passing the finalized composite matrix to OpenGL using <code class="text-emerald-400">glMultMatrixf(to_gl(matrix))</code>.
+        </p>
+      </details>
+    </div>
+  </section>
+
+  <!-- FOOTER -->
+  <footer class="mt-16 text-center text-xs text-slate-500">
+    <p>🍃 Built with Rowlet for the Introduction to Computer Graphics (0102460) Breakout Project.</p>
+    <p class="mt-1">All commands and code conform to the team's <code class="text-slate-400">CONTRIBUTING.md</code> and <code class="text-slate-400">docs/HOW_IT_WORKS.md</code>.</p>
+  </footer>
+
+  <!-- SCRIPT LOGIC -->
+  <script>
+    // Audio synthesizer using Web Audio API (No external assets required!)
+    let audioCtx = null;
+    let sfxEnabled = true;
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    function playTone(freq, type, duration, delay = 0) {
+      if (!sfxEnabled) return;
+      initAudio();
+      setTimeout(() => {
+        try {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = type;
+          osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+          gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start();
+          osc.stop(audioCtx.currentTime + duration);
+        } catch (e) {}
+      }, delay);
+    }
+
+    function playFanfare() {
+      // 8-bit level up fanfare
+      playTone(523.25, 'triangle', 0.1, 0);    // C5
+      playTone(659.25, 'triangle', 0.1, 100);  // E5
+      playTone(783.99, 'triangle', 0.1, 200);  // G5
+      playTone(1046.50, 'square', 0.35, 300);  // C6
+    }
+
+    function playCoin() {
+      playTone(987.77, 'square', 0.08, 0);     // B5
+      playTone(1318.51, 'square', 0.25, 80);   // E6
+    }
+
+    function toggleAudio() {
+      sfxEnabled = !sfxEnabled;
+      document.getElementById('sfx-text').textContent = sfxEnabled ? 'ON' : 'OFF';
+      document.getElementById('sfx-icon').textContent = sfxEnabled ? '🔊' : '🔇';
+      if (sfxEnabled) playCoin();
+    }
+
+    // Quest & XP Tracking
+    let currentXP = 0;
+    const questsCompleted = {};
+
+    function toggleQuest(questNum, xpReward, badgeId) {
+      initAudio();
+      const checkbox = document.getElementById('check-q' + questNum);
+      const badge = document.getElementById(badgeId);
+
+      if (checkbox.checked) {
+        questsCompleted[questNum] = true;
+        currentXP += xpReward;
+        badge.classList.remove('grayscale', 'opacity-40');
+        badge.classList.add('scale-110');
+        playFanfare();
+        triggerConfetti();
+        showToast(`🎉 Quest ${questNum} Completed! +${xpReward} XP!`);
+      } else {
+        delete questsCompleted[questNum];
+        currentXP = Math.max(0, currentXP - xpReward);
+        badge.classList.add('grayscale', 'opacity-40');
+        badge.classList.remove('scale-110');
+      }
+
+      updateXPDisplay();
+    }
+
+    function updateXPDisplay() {
+      document.getElementById('current-xp').textContent = currentXP;
+      const pct = Math.min(100, (currentXP / 5000) * 100);
+      document.getElementById('xp-fill').style.width = pct + '%';
+
+      const levelEl = document.getElementById('trainer-level');
+      if (currentXP >= 5000) {
+        levelEl.textContent = 'POKÉMON MASTER / GYM LEADER';
+        levelEl.className = 'pixel-font text-yellow-300 font-bold';
+      } else if (currentXP >= 3000) {
+        levelEl.textContent = 'LEVEL 3 GRAPHICS EXPERT';
+        levelEl.className = 'pixel-font text-emerald-300 font-bold';
+      } else if (currentXP >= 1000) {
+        levelEl.textContent = 'LEVEL 2 TRAINER';
+        levelEl.className = 'pixel-font text-emerald-400 font-bold';
+      } else {
+        levelEl.textContent = 'LEVEL 1 (ROOKIE)';
+        levelEl.className = 'pixel-font text-slate-400 font-bold';
+      }
+    }
+
+    // Interactive Pixel Grid Simulator
+    const grid = document.getElementById('pixel-grid');
+    const cells = [];
+    const GRID_SIZE = 16;
+
+    for (let y = 0; y < GRID_SIZE; y++) {
+      for (let x = 0; x < GRID_SIZE; x++) {
+        const cell = document.createElement('div');
+        cell.className = 'grid-cell';
+        cell.dataset.x = x;
+        cell.dataset.y = y;
+        cell.onclick = () => {
+          cell.classList.toggle('active-pixel');
+          playTone(440 + x * 20, 'square', 0.05);
+        };
+        grid.appendChild(cell);
+        cells.push(cell);
+      }
+    }
+
+    function clearGrid() {
+      cells.forEach(c => {
+        c.className = 'grid-cell';
+      });
+      document.getElementById('pixel-output').textContent = "Grid cleared.";
+    }
+
+    function setPixel(x, y, className = 'active-pixel') {
+      if (x >= 0 && x < GRID_SIZE && y >= 0 && y < GRID_SIZE) {
+        const idx = y * GRID_SIZE + x;
+        cells[idx].className = `grid-cell ${className}`;
+      }
+    }
+
+    function demoBresenham() {
+      clearGrid();
+      playCoin();
+      // Line (1, 2) to (14, 8)
+      let x0 = 1, y0 = 2, x1 = 14, y1 = 8;
+      let dx = Math.abs(x1 - x0);
+      let dy = Math.abs(y1 - y0);
+      let sx = x0 < x1 ? 1 : -1;
+      let sy = y0 < y1 ? 1 : -1;
+      let err = dx - dy;
+
+      let pts = [];
+      let delay = 0;
+
+      while (true) {
+        pts.push([x0, y0]);
+        const curX = x0, curY = y0;
+        setTimeout(() => {
+          setPixel(curX, curY, 'active-pixel');
+          playTone(500 + curX * 25, 'triangle', 0.04);
+        }, delay);
+        delay += 50;
+
+        if (x0 === x1 && y0 === y1) break;
+        let e2 = 2 * err;
+        if (e2 > -dy) { err -= dy; x0 += sx; }
+        if (e2 < dx) { err += dx; y0 += sy; }
+      }
+
+      document.getElementById('pixel-output').textContent = `Bresenham: plotted ${pts.length} integer coordinates!`;
+    }
+
+    function demoCircle() {
+      clearGrid();
+      playCoin();
+      let xc = 8, yc = 8, r = 6;
+      let x = 0, y = r;
+      let d = 1 - r;
+      let delay = 0;
+
+      function plot8(cx, cy, px, py) {
+        const sym = [
+          [cx + px, cy + py], [cx - px, cy + py],
+          [cx + px, cy - py], [cx - px, cy - py],
+          [cx + py, cy + px], [cx - py, cy + px],
+          [cx + py, cy - px], [cx - py, cy - px]
+        ];
+        setTimeout(() => {
+          sym.forEach(([sx, sy]) => setPixel(sx, sy, 'circle-pixel'));
+          playTone(600 + px * 40, 'triangle', 0.05);
+        }, delay);
+        delay += 100;
+      }
+
+      while (x <= y) {
+        plot8(xc, yc, x, y);
+        if (d < 0) {
+          d += 2 * x + 3;
+        } else {
+          d += 2 * (x - y) + 5;
+          y--;
+        }
+        x++;
+      }
+
+      document.getElementById('pixel-output').textContent = "Midpoint Circle: plotted with 8-way symmetry around (8, 8)!";
+    }
+
+    // Playstyle Toggling
+    function setPlaystyle(style) {
+      playCoin();
+      const dialogue = document.getElementById('rowlet-dialogue');
+      const btnA = document.getElementById('btn-agent-mode');
+      const btnB = document.getElementById('btn-learn-mode');
+
+      if (style === 'agent') {
+        btnA.className = 'tab-btn active px-4 py-2 rounded-xl text-xs font-bold border-2 border-slate-600 transition flex items-center gap-2';
+        btnB.className = 'tab-btn px-4 py-2 bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-bold border-2 border-slate-600 transition flex items-center gap-2';
+        dialogue.innerHTML = `"Hoo! In <strong>Agent Auto-Pilot Mode</strong>, you can relax while your AI assistant handles the code, math algorithms, and test suites! Simply click the <strong class='text-yellow-400'>'Copy Prompt'</strong> buttons below and paste them into the chat!"`;
+      } else {
+        btnB.className = 'tab-btn active px-4 py-2 rounded-xl text-xs font-bold border-2 border-slate-600 transition flex items-center gap-2';
+        btnA.className = 'tab-btn px-4 py-2 bg-slate-800 text-slate-300 hover:text-white rounded-xl text-xs font-bold border-2 border-slate-600 transition flex items-center gap-2';
+        dialogue.innerHTML = `"Hoo-hoot! In <strong>Trainer Mode</strong>, I will explain each concept with interactive demos, flashcards, and step-by-step logic so you understand everything and pass your presentation with flying colors!"`;
+      }
+    }
+
+    function scrollToSection(id) {
+      playCoin();
+      document.getElementById(id).scrollIntoView({ behavior: 'smooth' });
+    }
+
+    // Copy Prompts for AI Chat
+    const prompts = {
+      1: "Slave, implement raster.py for Member 2! Write bresenham_line(x0, y0, x1, y1) supporting all 8 octants, midpoint_circle(xc, yc, r) with 8-way symmetry, and scanline_fill(polygon) returning horizontal spans. Keep the exact function signatures required by test_graphics.py.",
+      2: "Slave, implement all 2D shapes in figures.py for Member 2! Add centered model-coordinate figures for: brick, rounded paddle, circle ball, UFO body, UFO dome, UFO light, heart (lives), joystick base/stick/knob, cabinet frame, and 7-segment digit.",
+      3: "Slave, implement render2d.py for Member 2! Complete build_scene() with full hierarchy (cabinet, starfield, paddle, ball, bricks, UFO, hearts, score), draw() with 4:3 letterboxing, filled polygon rendering, and pick() with inverse2 world matrix transformation and point-in-polygon ray casting.",
+      4: "Slave, unskip and implement Member 2's unittests in test_graphics.py! Write test_bresenham_0_0_to_5_2, test_midpoint_circle_points_on_radius, and test_screen_centre_is_world_origin, then run python -m unittest -v to verify they all pass.",
+      5: "Slave, do everything for Member 2 right now! Implement raster.py, figures.py (2D part), render2d.py, and test_graphics.py. Make sure all algorithms are exact, all tests pass, and prepare the Git branch m2-raster-2d with clean commits so I can open 1 PR!"
+    };
+
+    function copyPrompt(num) {
+      playCoin();
+      navigator.clipboard.writeText(prompts[num]);
+      showToast("📋 Prompt copied to clipboard! Paste it into chat!");
+    }
+
+    function copyCommand(elemId) {
+      playCoin();
+      const text = document.getElementById(elemId).textContent;
+      navigator.clipboard.writeText(text);
+      showToast("📋 Command copied to clipboard!");
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 3000);
+    }
+
+    // Confetti Animation
+    function triggerConfetti() {
+      playFanfare();
+      const canvas = document.getElementById('confetti-canvas');
+      const ctx = canvas.getContext('2d');
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+
+      const particles = [];
+      const colors = ['#2ecc71', '#f1c40f', '#e67e22', '#3498db', '#e74c3c', '#9b59b6'];
+
+      for (let i = 0; i < 90; i++) {
+        particles.push({
+          x: canvas.width / 2,
+          y: canvas.height / 2,
+          vx: (Math.random() - 0.5) * 16,
+          vy: (Math.random() - 0.8) * 18,
+          size: Math.random() * 8 + 4,
+          color: colors[Math.floor(Math.random() * colors.length)],
+          rotation: Math.random() * 360,
+          rotSpeed: (Math.random() - 0.5) * 10
+        });
+      }
+
+      let frames = 0;
+      function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => {
+          p.x += p.vx;
+          p.y += p.vy;
+          p.vy += 0.4; // gravity
+          p.rotation += p.rotSpeed;
+
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate((p.rotation * Math.PI) / 180);
+          ctx.fillStyle = p.color;
+          ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size);
+          ctx.restore();
+        });
+
+        frames++;
+        if (frames < 100) {
+          requestAnimationFrame(animate);
+        } else {
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+      }
+      animate();
+    }
+  </script>
+</body>
+</html>

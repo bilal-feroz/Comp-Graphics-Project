@@ -147,21 +147,43 @@ class TestGuiValidation(unittest.TestCase):
 
 
 # ======================================================================= Member 2: raster + 2D
-# TODO(M2): replace the skip markers with the real tests.
 
 class TestRaster(unittest.TestCase):
 
-    @unittest.skip("TODO(M2): Bresenham (0,0)->(5,2) gives (0,0) (1,0) (2,1) (3,1) (4,2) (5,2)")
     def test_bresenham_0_0_to_5_2(self):
-        pass
+        import raster
+        pts = raster.bresenham_line(0, 0, 5, 2)
+        expected = [(0, 0), (1, 0), (2, 1), (3, 1), (4, 2), (5, 2)]
+        self.assertEqual(pts, expected)
 
-    @unittest.skip("TODO(M2): every midpoint-circle point lies within 1 pixel of radius r")
     def test_midpoint_circle_points_on_radius(self):
-        pass
+        import raster
+        for r in (3, 5, 10, 15):
+            pts = raster.midpoint_circle(0, 0, r)
+            self.assertGreater(len(pts), 0)
+            for x, y in pts:
+                dist = math.hypot(x, y)
+                self.assertLessEqual(abs(dist - r), 1.0,
+                                     "Point (%d, %d) dist %f not within 1 of r=%d" % (x, y, dist, r))
 
-    @unittest.skip("TODO(M2): screen-to-world maps the window centre to (0, 0)")
     def test_screen_centre_is_world_origin(self):
-        pass
+        import render2d
+        # Window 800 x 600 has center (400, 300)
+        wx, wy = render2d.screen_to_world(400, 300, 800, 600)
+        self.assertTrue(close((wx, wy), (0.0, 0.0)))
+        # Letterbox test: wide window 1200 x 600 has center (600, 300) -> world (0, 0)
+        wx2, wy2 = render2d.screen_to_world(600, 300, 1200, 600)
+        self.assertTrue(close((wx2, wy2), (0.0, 0.0)))
+
+    def test_pick_finds_paddle(self):
+        import render2d
+        root = render2d.build_scene()
+        # Paddle is at (0, -6.5). Window 800 x 600 (4:3 aspect ratio).
+        # In world: Y=-6.5 is near the bottom.
+        # Screen Y = 600 * (7.5 - (-6.5)) / 15.0 = 600 * 14.0 / 15.0 = 560
+        node = render2d.pick(root, 400, 560, 800, 600)
+        self.assertIsNotNone(node)
+        self.assertEqual(node.name, "paddle")
 
 
 # ======================================================================= Member 3: game
