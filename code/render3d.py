@@ -51,9 +51,9 @@ def build_scene():
         for col in range(rules.BRICK_COLS):
             x, y = rules.brick_center(row, col)
             bricks.add(Node("brick_%d_%d" % (row, col),
-                            figures.box(rules.BRICK_W, rules.BRICK_H, 0.6),
+                            figures.bevelled_brick(rules.BRICK_W, rules.BRICK_H, 0.6),
                             (0.9, 0.45, 0.3), dim=3, tx=x, ty=y))
-    trophy = root.add(Node("trophy", figures.box(1.2, 2.0, 1.2), (1.0, 0.84, 0.0),
+    trophy = root.add(Node("trophy", figures.trophy(), (1.0, 0.84, 0.0),
                            dim=3, ty=9.0, tz=-4.0))
     trophy.add(Node("star", figures.star(), (1.0, 1.0, 0.6), dim=3, tx=2.0, ty=0.5))
     return root
