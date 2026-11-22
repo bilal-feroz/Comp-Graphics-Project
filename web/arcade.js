@@ -1,11 +1,13 @@
-/* arcade.js - the 3D arcade room for the intro (three.js r128).
+/* arcade.js - the 3D arcade hall for the intro (three.js r128).
  *
  * PRESENTATION EXTRA ("wow factor"): this file is not part of the graded
  * Python/OpenGL project. It only frames the game: the cabinet's screen shows
  * the live game canvas (engine.js), the joystick leans with the paddle and the
  * buttons light up when points are scored.
  *
- * Units are metres. The cabinet faces +z; its screen is a 4:3 plane.
+ * Units are metres. The main cabinet faces +z; its screen is a 4:3 plane.
+ * The zoom ends with the camera placed so the 3D screen covers exactly the
+ * rectangle where the HTML game canvas sits, so the two can cross-fade.
  */
 (function (root) {
   "use strict";
@@ -20,18 +22,20 @@
     const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
     renderer.setPixelRatio(Math.min(root.devicePixelRatio || 1, 1.5));
     container.appendChild(renderer.domElement);
+    const maxAniso = renderer.capabilities.getMaxAnisotropy();
 
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x07060f);
-    scene.fog = new THREE.Fog(0x07060f, 5.5, 15);
+    scene.fog = new THREE.Fog(0x07060f, 6, 17);
     const camera = new THREE.PerspectiveCamera(35, 1, 0.03, 60);
 
     // ------------------------------------------------------------------ textures drawn on canvases
     function makeCanvas(w, h) { const c = document.createElement("canvas"); c.width = w; c.height = h; return c; }
-    function texture(c) { const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4; return t; }
+    function texture(c) { const t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = Math.min(8, maxAniso); return t; }
     const BRICKS = ["#f44336", "#ff9800", "#ffeb3b", "#4caf50", "#2196f3"];
 
-    // The screen: the game canvas + scanlines + vignette, like a CRT.
+    // The screen: the game canvas, plus CRT scanlines and a vignette that fade
+    // away as the camera arrives (fx = 1 in the hall, 0 at the end of the zoom).
     const crt = makeCanvas(960, 720), crtCtx = crt.getContext("2d");
     const scan = makeCanvas(1, 3), scanCtx = scan.getContext("2d");
     scanCtx.fillStyle = "rgba(0,0,0,0.32)"; scanCtx.fillRect(0, 2, 1, 1);
@@ -39,10 +43,15 @@
     const vignette = crtCtx.createRadialGradient(480, 360, 200, 480, 360, 640);
     vignette.addColorStop(0, "rgba(0,0,0,0)"); vignette.addColorStop(1, "rgba(0,0,0,0.6)");
     const screenTex = texture(crt);
-    function updateScreen() {
+    function updateScreen(fx) {
+      crtCtx.globalAlpha = 1;
       crtCtx.drawImage(sourceCanvas, 0, 0, 960, 720);
-      crtCtx.fillStyle = scanPattern; crtCtx.fillRect(0, 0, 960, 720);
-      crtCtx.fillStyle = vignette; crtCtx.fillRect(0, 0, 960, 720);
+      if (fx > 0.01) {
+        crtCtx.globalAlpha = fx;
+        crtCtx.fillStyle = scanPattern; crtCtx.fillRect(0, 0, 960, 720);
+        crtCtx.fillStyle = vignette; crtCtx.fillRect(0, 0, 960, 720);
+        crtCtx.globalAlpha = 1;
+      }
       screenTex.needsUpdate = true;
     }
 
@@ -70,8 +79,8 @@
       g.addColorStop(0, "#1a1240"); g.addColorStop(1, "#0a0f2a");
       sd.fillStyle = g; sd.fillRect(0, 0, 512, 1024);
       sd.save(); sd.translate(256, 560); sd.rotate(-0.5);
-      BRICKS.forEach((c, i) => { sd.fillStyle = c; sd.globalAlpha = 0.9; sd.fillRect(-500, -150 + i * 64, 1000, 34); });
-      sd.restore(); sd.globalAlpha = 1;
+      BRICKS.forEach((c, i) => { sd.fillStyle = c; sd.fillRect(-500, -150 + i * 64, 1000, 34); });
+      sd.restore();
       sd.fillStyle = "#eafcff"; sd.beginPath(); sd.arc(360, 250, 34, 0, Math.PI * 2); sd.fill();
       sd.fillStyle = "#33d6ff"; sd.fillRect(150, 860, 220, 26);
     })();
@@ -106,6 +115,23 @@
     })();
     const panelTex = texture(panel);
 
+    // Floor grid as a mipmapped texture: thin GridHelper lines shimmer when the
+    // camera moves; a filtered texture stays smooth.
+    const gridCanvas = makeCanvas(256, 256), gc = gridCanvas.getContext("2d");
+    gc.fillStyle = "#000"; gc.fillRect(0, 0, 256, 256);
+    gc.strokeStyle = "rgba(120, 90, 255, 0.55)"; gc.lineWidth = 2;
+    for (const p of [64, 128, 192]) { gc.beginPath(); gc.moveTo(p, 0); gc.lineTo(p, 256); gc.moveTo(0, p); gc.lineTo(256, p); gc.stroke(); }
+    gc.strokeStyle = "rgba(255, 45, 149, 0.95)"; gc.lineWidth = 4; gc.strokeRect(0, 0, 256, 256);
+    const gridTex = texture(gridCanvas);
+    gridTex.wrapS = gridTex.wrapT = THREE.RepeatWrapping; gridTex.repeat.set(20, 20); gridTex.anisotropy = maxAniso;
+
+    function radialTexture(stops) {
+      const c = makeCanvas(256, 256), x = c.getContext("2d"), g = x.createRadialGradient(128, 128, 0, 128, 128, 128);
+      stops.forEach(([o, col]) => g.addColorStop(o, col));
+      x.fillStyle = g; x.fillRect(0, 0, 256, 256);
+      return texture(c);
+    }
+
     // ------------------------------------------------------------------ the cabinet
     // Side profile in the z-y plane (z forward, y up), extruded sideways.
     const PROFILE = [[-0.36, 0], [0.34, 0], [0.34, 0.86], [0.45, 0.94], [0.45, 1.0], [0.20, 1.06],
@@ -130,9 +156,10 @@
     };
     const screenMat = new THREE.MeshBasicMaterial({ map: screenTex });
     const dimScreenMat = new THREE.MeshBasicMaterial({ map: screenTex, color: 0x6a6a7a });
+    const buttonMats = [0xe63333, 0x33cc4d, 0x3380e6].map((c) =>
+      new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.25, roughness: 0.3 }));
 
-    // Points along the profile -> a closed path for the neon T-molding.
-    function moldingPath(x) {
+    function moldingPath(x) {                         // the profile as a closed path for the neon T-molding
       const path = new THREE.CurvePath();
       for (let i = 0; i < PROFILE.length; i++) {
         const [z0, y0] = PROFILE[i], [z1, y1] = PROFILE[(i + 1) % PROFILE.length];
@@ -140,20 +167,20 @@
       }
       return path;
     }
+    const moldingGeo = [-1, 1].map((sx) => new THREE.TubeGeometry(moldingPath(sx * 0.39), 260, 0.009, 6, true));
     function box(w, h, d, mat, x, y, z, rx) {
       const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
       m.position.set(x, y, z); if (rx) m.rotation.x = rx;
       return m;
     }
 
-    function buildCabinet(screenMaterial, live) {
+    function buildCabinet(screenMaterial) {
       const cab = new THREE.Group();
-      for (const sx of [-1, 1]) {
+      [-1, 1].forEach((sx, i) => {
         const panelMesh = new THREE.Mesh(sideGeo, [mats.side, mats.edge]);
         panelMesh.position.x = sx < 0 ? -0.37 : 0.41;
-        cab.add(panelMesh);
-        cab.add(new THREE.Mesh(new THREE.TubeGeometry(moldingPath(sx * 0.39), 260, 0.009, 6, true), mats.neon));
-      }
+        cab.add(panelMesh, new THREE.Mesh(moldingGeo[i], mats.neon));
+      });
       cab.add(box(0.74, 0.86, 0.03, mats.body, 0, 0.43, 0.325));          // lower front
       cab.add(box(0.74, 0.08, 0.02, mats.black, 0, 0.04, 0.345));         // kick plate
       cab.add(box(0.26, 0.32, 0.015, mats.door, 0, 0.46, 0.345));         // coin door
@@ -161,8 +188,7 @@
       cab.add(box(0.74, 0.02, 0.67, mats.body, 0, 1.87, -0.025));         // top
       cab.add(box(0.74, 0.06, 0.2, mats.body, 0, 1.65, 0.215));           // under the marquee
       cab.add(box(0.70, 0.012, 0.02, mats.lightBar, 0, 1.615, 0.2));      // light bar over the screen
-      const mq = box(0.74, 0.20, 0.06, mats.black, 0, 1.78, 0.28);        // marquee box
-      cab.add(mq);
+      cab.add(box(0.74, 0.20, 0.06, mats.black, 0, 1.78, 0.28));          // marquee box
       const mqFace = new THREE.Mesh(new THREE.PlaneGeometry(0.72, 0.18), mats.marquee);
       mqFace.position.set(0, 1.78, 0.3105); cab.add(mqFace);
       // Control panel: rises 14 degrees towards the screen.
@@ -173,59 +199,75 @@
       // Joystick: base -> pivot (leans with the paddle) -> shaft + red knob (Member 2's design).
       const joyBase = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.04, 0.012, 24), mats.black);
       joyBase.position.set(-0.18, 0.018, -0.01); cp.add(joyBase);
-      const pivot = new THREE.Group(); pivot.position.set(-0.18, 0.024, -0.01); cp.add(pivot);
+      const pivot = new THREE.Group(); pivot.name = "joyPivot"; pivot.position.set(-0.18, 0.024, -0.01); cp.add(pivot);
       const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.007, 0.007, 0.09, 12), mats.chrome);
       shaft.position.y = 0.045; pivot.add(shaft);
       const knob = new THREE.Mesh(new THREE.SphereGeometry(0.026, 24, 16), mats.knob);
       knob.position.y = 0.095; pivot.add(knob);
-      // Buttons in Member 2's colours.
-      const buttons = [0xe63333, 0x33cc4d, 0x3380e6].map((c, i) => {
-        const mat = new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 0.25, roughness: 0.3 });
+      buttonMats.forEach((mat, i) => {                // Member 2's button colours
         const b = new THREE.Mesh(new THREE.CylinderGeometry(0.021, 0.021, 0.016, 24), mat);
         b.position.set(0.06 + i * 0.08, 0.02, -0.02); cp.add(b);
-        return mat;
       });
       cab.add(cp);
       // Screen: bezel + 4:3 picture, leaning back about 8 degrees.
       const tilt = -Math.atan2(0.08, 0.56);
-      const bezel = box(0.74, 0.58, 0.03, mats.black, 0, 1.34, 0.145, tilt); cab.add(bezel);
+      cab.add(box(0.74, 0.58, 0.03, mats.black, 0, 1.34, 0.145, tilt));
       const screen = new THREE.Mesh(new THREE.PlaneGeometry(0.60, 0.45), screenMaterial);
-      screen.rotation.x = tilt;
-      // Just in front of the bezel's front face, along the tilted normal (0, -sin, cos).
+      screen.name = "screen"; screen.rotation.x = tilt;
       screen.position.set(0, 1.34, 0.145).add(new THREE.Vector3(0, -Math.sin(tilt), Math.cos(tilt)).multiplyScalar(0.017));
       cab.add(screen);
-      if (live) Object.assign(live, { pivot, buttons, screen });
       return cab;
     }
 
-    const live = {};
-    const cabinet = buildCabinet(screenMat, live);
-    scene.add(cabinet);
-    for (const sx of [-1, 1]) {                       // two more machines: an arcade hall
-      const other = buildCabinet(dimScreenMat, null);
+    // ------------------------------------------------------------------ the hall: three machines + their reflections
+    const hall = new THREE.Group();
+    const cabinet = buildCabinet(screenMat);
+    hall.add(cabinet);
+    for (const sx of [-1, 1]) {
+      const other = buildCabinet(dimScreenMat);
       other.position.set(sx * 1.3, 0, -0.75); other.rotation.y = -sx * 0.32;
-      scene.add(other);
+      hall.add(other);
     }
+    scene.add(hall);
+    const reflection = hall.clone();                 // mirrored under the glossy floor
+    reflection.scale.y = -1;
+    scene.add(reflection);
+    const pivots = [cabinet.getObjectByName("joyPivot"), reflection.children[0].getObjectByName("joyPivot")];
 
-    // ------------------------------------------------------------------ the room
     const floor = new THREE.Mesh(new THREE.PlaneGeometry(40, 40),
-                                 new THREE.MeshStandardMaterial({ color: 0x0b0918, roughness: 0.32, metalness: 0.6 }));
+      new THREE.MeshStandardMaterial({ color: 0x0b0918, roughness: 0.25, metalness: 0.5, transparent: true, opacity: 0.86 }));
     floor.rotation.x = -Math.PI / 2; scene.add(floor);
-    const grid = new THREE.GridHelper(40, 80, 0xff2d95, 0x3a2f7c);
-    grid.material.transparent = true; grid.material.opacity = 0.4; grid.position.y = 0.002; scene.add(grid);
+    const grid = new THREE.Mesh(new THREE.PlaneGeometry(40, 40),
+      new THREE.MeshBasicMaterial({ map: gridTex, transparent: true, opacity: 0.5, blending: THREE.AdditiveBlending, depthWrite: false }));
+    grid.rotation.x = -Math.PI / 2; grid.position.y = 0.003; scene.add(grid);
+    const glow = new THREE.Mesh(new THREE.PlaneGeometry(2.6, 2.6),
+      new THREE.MeshBasicMaterial({ map: radialTexture([[0, "rgba(51,214,255,0.55)"], [0.45, "rgba(120,60,255,0.18)"], [1, "rgba(0,0,0,0)"]]),
+                                    transparent: true, blending: THREE.AdditiveBlending, depthWrite: false }));
+    glow.rotation.x = -Math.PI / 2; glow.position.set(0, 0.006, 0.35); scene.add(glow);
+
     const wall = new THREE.Mesh(new THREE.PlaneGeometry(40, 12), new THREE.MeshStandardMaterial({ color: 0x0a0816, roughness: 0.9 }));
     wall.position.set(0, 6, -3.4); scene.add(wall);
     BRICKS.forEach((c, row) => {                     // a neon brick wall behind the machines
+      const mat = new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(0.3) });
       for (let col = 0; col < 10; col++) {
-        const brick = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.16, 0.02), new THREE.MeshBasicMaterial({ color: new THREE.Color(c).multiplyScalar(0.3) }));
+        const brick = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.16, 0.02), mat);
         brick.position.set(-2.75 + col * 0.61, 3.7 - row * 0.23, -3.38); scene.add(brick);
       }
     });
 
+    // A soft beam of light falling on the main cabinet.
+    const beamCanvas = makeCanvas(4, 256), bc = beamCanvas.getContext("2d"), bg = bc.createLinearGradient(0, 0, 0, 256);
+    bg.addColorStop(0, "rgba(255,255,255,0)"); bg.addColorStop(0.35, "rgba(190,225,255,0.5)"); bg.addColorStop(1, "rgba(190,225,255,0)");
+    bc.fillStyle = bg; bc.fillRect(0, 0, 4, 256);
+    const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 1.15, 4.4, 48, 1, true),
+      new THREE.MeshBasicMaterial({ map: texture(beamCanvas), transparent: true, opacity: 0.16, blending: THREE.AdditiveBlending,
+                                    depthWrite: false, side: THREE.DoubleSide }));
+    beam.position.set(0, 2.35, 0.2); scene.add(beam);
+
     const STARS = 260, starPos = new Float32Array(STARS * 3), starSpeed = new Float32Array(STARS);
     for (let i = 0; i < STARS; i++) {
       starPos[i * 3] = (Math.random() - 0.5) * 9; starPos[i * 3 + 1] = Math.random() * 4; starPos[i * 3 + 2] = -3 + Math.random() * 5;
-      starSpeed[i] = 0.04 + Math.random() * 0.1;
+      starSpeed[i] = 0.03 + Math.random() * 0.08;
     }
     const starGeo = new THREE.BufferGeometry();
     starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
@@ -235,16 +277,17 @@
     // ------------------------------------------------------------------ lights
     scene.add(new THREE.AmbientLight(0x3a3560, 0.55));
     scene.add(new THREE.HemisphereLight(0x7c6cff, 0x0a0812, 0.4));
-    const spot = new THREE.SpotLight(0xffffff, 1.5, 12, 0.5, 0.6, 1.4);
-    spot.position.set(0.6, 4.4, 2.6); spot.target.position.set(0, 1, 0); scene.add(spot, spot.target);
+    const spot = new THREE.SpotLight(0xffffff, 1.6, 12, 0.45, 0.6, 1.4);
+    spot.position.set(0, 4.6, 1.6); spot.target.position.set(0, 1, 0.2); scene.add(spot, spot.target);
     const magenta = new THREE.PointLight(0xff2d95, 2.2, 6, 2); magenta.position.set(-1.7, 1.9, 1.2); scene.add(magenta);
     const cyan = new THREE.PointLight(0x33d6ff, 1.8, 6, 2); cyan.position.set(1.8, 1.2, 1.5); scene.add(cyan);
 
-    // Where the screen is in the world (for the zoom).
-    cabinet.updateMatrixWorld(true);
-    const screenCenter = new THREE.Vector3(), screenNormal = new THREE.Vector3(0, 0, 1), q = new THREE.Quaternion();
-    live.screen.getWorldPosition(screenCenter);
-    screenNormal.applyQuaternion(live.screen.getWorldQuaternion(q)).normalize();
+    // Where the main screen is in the world (for the zoom).
+    hall.updateMatrixWorld(true);
+    const screenMesh = cabinet.getObjectByName("screen");
+    const screenCenter = new THREE.Vector3(), screenNormal = new THREE.Vector3(0, 0, 1);
+    screenMesh.getWorldPosition(screenCenter);
+    screenNormal.applyQuaternion(screenMesh.getWorldQuaternion(new THREE.Quaternion())).normalize();
     const screenGlow = new THREE.PointLight(0x9fe8ff, 0.9, 2.4, 2);
     screenGlow.position.copy(screenCenter).addScaledVector(screenNormal, 0.35); scene.add(screenGlow);
 
@@ -261,7 +304,7 @@
     if (!composer) renderer.outputEncoding = THREE.sRGBEncoding;
 
     // ------------------------------------------------------------------ camera poses and the zoom
-    let width = 1, height = 1, clock = 0, tween = null, state = "intro";
+    let width = 1, height = 1, clock = 0, tween = null, state = "intro", holdRect = null;
     const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
     container.addEventListener("pointermove", (e) => {
       const r = container.getBoundingClientRect();
@@ -270,35 +313,46 @@
 
     function introPose() {
       // Distance so the cabinet (1.9 m tall) fills about 3/4 of the height,
-      // or about 2/3 of the width on a portrait phone.
+      // or most of the width on a portrait phone. A slow, gentle sway.
       const a = width / height, portrait = a < 0.95;
       const R = portrait ? Math.min(9.5, Math.max(5, 3.9 / a)) : a < 1.45 ? 4.6 : 4.1;
-      const ang = 0.5 + (reduced ? 0 : 0.18 * Math.sin(clock * 0.13)) + mouse.x * 0.08;
+      const ang = 0.5 + (reduced ? 0 : 0.09 * Math.sin(clock * 0.09)) + mouse.x * 0.04;
       return {
-        pos: new THREE.Vector3(R * Math.sin(ang), 1.45 - mouse.y * 0.12 + (portrait ? 0.3 : 0), R * Math.cos(ang)),
+        pos: new THREE.Vector3(R * Math.sin(ang), 1.45 - mouse.y * 0.06 + (portrait ? 0.3 : 0), R * Math.cos(ang)),
         target: new THREE.Vector3(0, portrait ? 1.0 : 0.98, 0),
         sx: portrait ? 0 : a < 1.45 ? 0.22 : 0.2, sy: portrait ? 0.31 : 0,
       };
     }
-    function screenPose() {
-      const a = width / height, t = Math.tan(rad(camera.fov / 2));
-      const d = Math.max(0.225 / t, 0.3 / (t * a)) / 0.96;
-      return { pos: screenCenter.clone().addScaledVector(screenNormal, d), target: screenCenter.clone(), sx: 0, sy: 0 };
+    /* The pose where the 3D screen (0.60 x 0.45 m) covers exactly `rect`, a box in the
+       container's CSS pixels: the camera sits on the screen's normal at the distance
+       that makes 0.45 m as tall as the box, and a lens shift moves the picture so its
+       centre lands on the box's centre. */
+    function matchedPose(rect) {
+      const t = Math.tan(rad(camera.fov / 2));
+      if (!rect || rect.h < 8) {
+        const d = Math.max(0.225 / t, 0.3 / (t * (width / height))) / 0.96;
+        return { pos: screenCenter.clone().addScaledVector(screenNormal, d), target: screenCenter.clone(), sx: 0, sy: 0 };
+      }
+      const d = (0.225 / t) * (height / rect.h);
+      const dx = rect.x + rect.w / 2 - width / 2, dy = rect.y + rect.h / 2 - height / 2;
+      return { pos: screenCenter.clone().addScaledVector(screenNormal, d), target: screenCenter.clone(), sx: dx / width, sy: -dy / height };
     }
     let pose = introPose();
     const ease = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
     function bezier(a, c, b, t) {
       return a.clone().multiplyScalar((1 - t) * (1 - t)).addScaledVector(c, 2 * (1 - t) * t).addScaledVector(b, t * t);
     }
-    const arcPoint = () => screenCenter.clone().addScaledVector(screenNormal, 1.8).add(new THREE.Vector3(0, 0.12, 0));
+    const arcPoint = () => screenCenter.clone().addScaledVector(screenNormal, 1.7).add(new THREE.Vector3(0, 0.1, 0));
 
-    function zoomIn(onProgress, onDone) {
+    function zoomIn(getRect, onProgress, onDone) {
       state = "tween";
-      tween = { from: pose, to: screenPose, dur: reduced ? 0.01 : 2.4, t: 0, onProgress, onDone: () => { state = "inside"; onDone(); } };
+      tween = { from: pose, to: () => matchedPose(getRect()), dur: reduced ? 0.01 : 2.6, t: 0, onProgress,
+                onDone: () => { state = "inside"; holdRect = getRect; onDone(); } };
     }
+    function holdAt(getRect) { tween = null; state = "inside"; holdRect = getRect; pose = matchedPose(getRect()); }
     function zoomOut(onDone) {
       state = "tween";
-      tween = { from: screenPose(), to: introPose, dur: reduced ? 0.01 : 1.9, t: 0, onDone: () => { state = "intro"; onDone(); } };
+      tween = { from: pose, to: introPose, dur: reduced ? 0.01 : 2.2, t: 0, onDone: () => { state = "intro"; onDone(); } };
     }
 
     function applyCamera() {
@@ -306,7 +360,6 @@
       camera.lookAt(pose.target);
       camera.setViewOffset(width, height, -pose.sx * width, pose.sy * height, width, height);
     }
-
     function resize() {
       width = Math.max(1, container.clientWidth); height = Math.max(1, container.clientHeight);
       renderer.setSize(width, height, false);
@@ -318,9 +371,9 @@
     resize();
 
     // ------------------------------------------------------------------ every frame
-    function update(dt, game) {
+    function update(dt, game, fx) {
       clock += dt;
-      mouse.x += (mouse.tx - mouse.x) * Math.min(1, dt * 3); mouse.y += (mouse.ty - mouse.y) * Math.min(1, dt * 3);
+      mouse.x += (mouse.tx - mouse.x) * Math.min(1, dt * 2); mouse.y += (mouse.ty - mouse.y) * Math.min(1, dt * 2);
       if (tween) {
         tween.t += dt;
         const p = Math.min(1, tween.t / tween.dur), e = ease(p), to = tween.to();
@@ -330,15 +383,14 @@
         if (p >= 1) { const done = tween.onDone; tween = null; done(); }
       } else if (state === "intro") {
         pose = introPose();
-      } else {
-        pose = screenPose();
+      } else if (holdRect) {
+        pose = matchedPose(holdRect());
       }
       applyCamera();
 
-      // The cabinet plays along with the game.
-      if (game) {
-        live.pivot.rotation.z = rad(game.joystickTilt);
-        live.buttons.forEach((m, i) => { m.emissiveIntensity = 0.25 + 1.6 * Math.max(0, game.scorePulse - i * 0.12); });
+      if (game) {                                     // the cabinet plays along with the game
+        for (const p of pivots) if (p) p.rotation.z = rad(game.joystickTilt);
+        buttonMats.forEach((m, i) => { m.emissiveIntensity = 0.25 + 1.6 * Math.max(0, game.scorePulse - i * 0.12); });
       }
       const pos = starGeo.attributes.position.array;
       for (let i = 0; i < STARS; i++) {
@@ -346,13 +398,13 @@
         if (pos[i * 3 + 1] > 4) pos[i * 3 + 1] = 0;
       }
       starGeo.attributes.position.needsUpdate = true;
-      mats.neon.color.setHSL(0.52, 1, 0.72 + 0.06 * Math.sin(clock * 2.2));
+      mats.neon.color.setHSL(0.52, 1, 0.72 + 0.04 * Math.sin(clock * 1.6));
 
-      updateScreen();
+      updateScreen(fx === undefined ? 1 : fx);
       if (composer) composer.render(); else renderer.render(scene, camera);
     }
 
-    return { update, zoomIn, zoomOut, resize };
+    return { update, zoomIn, zoomOut, holdAt, resize };
   }
 
   root.Arcade = { create };

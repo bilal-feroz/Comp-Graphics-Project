@@ -5,19 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Arcade Breakout</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="Arcade Breakout: a team computer graphics project. Walk up to the arcade cabinet, press start and play the 2D and 3D game.">
+<meta name="description" content="Arcade Breakout: a team computer graphics project at Al Ain University. Walk up to the arcade cabinet, press start and play the 2D and 3D game.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script>document.documentElement.classList.add("js");</script>
 <style>
-  /* Layout: a full-screen 3D arcade room (three.js) as the intro, a fixed full-screen
-     game layer after the zoom, and the project notes below the fold.
-     One deliberate dark look (an arcade at night); every colour is set explicitly. */
+  /* Layout: a full-screen 3D arcade hall (three.js) with a glass panel for the title and
+     credits; a full-screen game layer that fades in over the cabinet's screen; the
+     project notes below. One deliberate dark look (an arcade at night). */
   :root {
     --night: #07060f;        /* the arcade room */
-    --panel: #151a2c;
-    --line: #2a3150;
+    --glass: rgba(10, 10, 26, .66);
+    --panel: #12172a;
+    --line: #262d4c;
     --ink: #eceef8;
-    --muted: #a2aac6;
+    --muted: #a3abc7;
     --paddle: #33d6ff;       /* the paddle's cyan: the accent */
     --coin: #ffd23f;         /* the trophy gold: START only */
     --heart: #f2334d;
@@ -30,81 +32,105 @@
     color-scheme: dark;
   }
   [hidden] { display: none !important; }
+  html { scroll-behavior: smooth; }
   html, body { background: var(--night); color: var(--ink); }
-  body { margin: 0; font-family: var(--body); font-size: 15px; line-height: 1.55; }
+  body { margin: 0; font-family: var(--body); font-size: 15px; line-height: 1.55; -webkit-font-smoothing: antialiased; }
   a { color: var(--paddle); }
   :focus-visible { outline: 2px solid var(--paddle); outline-offset: 3px; }
   code { font-family: var(--mono); font-size: .92em; }
+  img { max-width: 100%; }
 
   /* ================================================================ intro */
-  .intro { position: relative; height: 100vh; height: 100svh; min-height: 620px; overflow: hidden; background: var(--night); }
+  .intro { position: relative; min-height: 100vh; min-height: 100svh; display: grid; align-items: center; overflow: hidden;
+           padding-block: 28px 64px; box-sizing: border-box; }
   .stage { position: absolute; inset: 0; }
   .stage canvas { display: block; width: 100%; height: 100%; }
   .stage.fallback { background: radial-gradient(ellipse at 70% 45%, #2a1d55, #07060f 65%); }
-  .intro::before { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
-                   background: linear-gradient(90deg, rgba(7, 6, 15, .92) 0%, rgba(7, 6, 15, .72) 34%, rgba(7, 6, 15, 0) 60%); }
-  .intro-ui { position: absolute; z-index: 2; top: 50%; transform: translateY(-50%); width: min(500px, 46vw);
-              left: max(32px, env(safe-area-inset-left, 0px)); display: grid; gap: 18px;
-              transition: opacity .5s ease, transform .6s ease; }
-  .intro-ui.gone { opacity: 0; transform: translateY(-50%) translateX(-40px); pointer-events: none; }
-  .eyebrow { margin: 0; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
-  .eyebrow b { color: var(--ink); font-weight: 600; }
-  .title { margin: 0; font-family: var(--display); font-weight: 700; font-size: clamp(38px, 5.6vw, 72px); line-height: .95; letter-spacing: .02em;
-           text-shadow: 0 0 22px rgba(51, 214, 255, .35); }
-  .title span { display: block; color: var(--paddle); }
-  .tag { margin: 0; color: var(--muted); max-width: 44ch; }
-  .bricks { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; height: 6px; width: 220px; }
+  .intro::after { content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 1;
+                  background: linear-gradient(90deg, rgba(7, 6, 15, .55) 0%, rgba(7, 6, 15, 0) 48%), linear-gradient(0deg, rgba(7, 6, 15, .7), rgba(7, 6, 15, 0) 22%); }
+  .intro-ui { position: relative; z-index: 2; width: min(470px, 42vw); box-sizing: border-box;
+              margin-left: max(40px, env(safe-area-inset-left, 0px));
+              background: var(--glass); -webkit-backdrop-filter: blur(16px) saturate(1.2); backdrop-filter: blur(16px) saturate(1.2);
+              border: 1px solid rgba(255, 255, 255, .08); border-radius: 22px; padding: 26px 28px 24px;
+              box-shadow: 0 30px 90px rgba(0, 0, 0, .5), inset 0 1px 0 rgba(255, 255, 255, .06);
+              display: grid; gap: 16px; transition: opacity .5s ease, transform .6s cubic-bezier(.2, .8, .2, 1); }
+  .intro-ui.gone { opacity: 0; transform: translateX(-28px); pointer-events: none; }
+  /* Staggered reveal once the fonts are in, so nothing jumps while they load. */
+  .js .intro-ui > * { opacity: 0; transform: translateY(12px); transition: opacity .6s ease, transform .7s cubic-bezier(.2, .8, .2, 1);
+                      transition-delay: calc(var(--i, 0) * 70ms); }
+  .js .intro-ui.ready > * { opacity: 1; transform: none; }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .logo-card { background: #fff; border-radius: 12px; padding: 6px 10px; display: grid; place-items: center; box-shadow: 0 6px 24px rgba(0, 0, 0, .35); }
+  .logo-card img { display: block; height: 76px; width: auto; }
+  .brand-text { display: grid; gap: 2px; font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+  .brand-text b { color: var(--ink); font-weight: 600; letter-spacing: .1em; }
+  .title { margin: 0; font-family: var(--display); font-weight: 700; font-size: clamp(36px, 4.6vw, 64px); line-height: .98; letter-spacing: .02em; }
+  .title span { display: block; }
+  .title .t2 { background: linear-gradient(100deg, #33d6ff 0%, #33d6ff 38%, #e9fdff 50%, #33d6ff 62%, #33d6ff 100%); background-size: 260% 100%;
+               -webkit-background-clip: text; background-clip: text; color: transparent; filter: drop-shadow(0 0 18px rgba(51, 214, 255, .35));
+               animation: sheen 6s ease-in-out infinite; }
+  @keyframes sheen { 0%, 55% { background-position: 100% 0; } 85%, 100% { background-position: 0% 0; } }
+  .bricks { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; height: 6px; width: 210px; }
   .bricks span { border-radius: 2px; }
   .bricks span:nth-child(1) { background: var(--b1); } .bricks span:nth-child(2) { background: var(--b2); }
   .bricks span:nth-child(3) { background: var(--b3); } .bricks span:nth-child(4) { background: var(--b4); }
   .bricks span:nth-child(5) { background: var(--b5); }
-  .credits { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
-  .credits li { display: grid; grid-template-columns: 1fr auto; column-gap: 14px; align-items: baseline;
-                padding: 8px 0; border-top: 1px solid rgba(162, 170, 198, .18); }
+  .tag { margin: 0; color: var(--muted); max-width: 42ch; }
+  .credits { list-style: none; margin: 0; padding: 0; display: grid; }
+  .credits li { display: grid; grid-template-columns: 10px 1fr auto; column-gap: 12px; align-items: baseline; padding: 8px 6px; margin: 0 -6px;
+                border-top: 1px solid rgba(162, 170, 198, .14); border-radius: 8px; transition: background .2s; }
+  .credits li:hover { background: rgba(255, 255, 255, .04); }
+  .credits .dot { width: 8px; height: 8px; border-radius: 2px; background: var(--c); align-self: center; box-shadow: 0 0 10px var(--c); }
   .credits .name { font-weight: 600; }
-  .credits .id { font-family: var(--mono); font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
-  .credits .role { grid-column: 1 / -1; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
-  .start-row { display: flex; flex-wrap: wrap; gap: 14px 20px; align-items: center; }
-  .start { font-family: var(--display); font-weight: 700; font-size: 24px; letter-spacing: .14em; padding: 14px 30px; border: 0; border-radius: 10px;
-           background: var(--coin); color: #241a00; cursor: pointer; box-shadow: 0 5px 0 #b38f13, 0 0 34px rgba(255, 210, 63, .35);
-           animation: pulse 1.8s ease-in-out infinite; }
+  .credits .id { font-family: var(--mono); font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .credits .role { grid-column: 2 / -1; font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  .start-row { display: flex; flex-wrap: wrap; gap: 12px 18px; align-items: center; }
+  .start { position: relative; font-family: var(--display); font-weight: 700; font-size: 22px; letter-spacing: .16em; padding: 13px 30px 13px 26px;
+           border: 0; border-radius: 12px; background: var(--coin); color: #241a00; cursor: pointer;
+           box-shadow: 0 5px 0 #b38f13, 0 0 34px rgba(255, 210, 63, .32); transition: transform .12s, box-shadow .12s; }
+  .start::before { content: "\25B6"; font-size: 15px; margin-right: 12px; position: relative; top: -2px; }
+  .start:hover { box-shadow: 0 5px 0 #b38f13, 0 0 54px rgba(255, 210, 63, .55); }
   .start:active { transform: translateY(3px); box-shadow: 0 2px 0 #b38f13; }
-  @keyframes pulse { 50% { box-shadow: 0 5px 0 #b38f13, 0 0 54px rgba(255, 210, 63, .6); } }
   .start-hint { margin: 0; font-size: 13px; color: var(--muted); }
-  .extra-note { margin: 0; font-size: 12.5px; color: var(--muted); max-width: 46ch; border-left: 2px solid var(--warn); padding-left: 10px; }
+  .extra-note { margin: 0; font-size: 12.5px; color: var(--muted); border-left: 2px solid var(--warn); padding-left: 10px; }
   .scroll-hint { position: absolute; z-index: 2; bottom: max(18px, env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%);
-                 font-size: 13px; color: var(--muted); text-decoration: none; transition: opacity .4s; }
+                 display: grid; justify-items: center; gap: 6px; font-size: 13px; color: var(--muted); text-decoration: none; transition: opacity .4s; }
+  .scroll-hint i { width: 10px; height: 10px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg);
+                   animation: nudge 1.8s ease-in-out infinite; }
+  @keyframes nudge { 50% { transform: translateY(5px) rotate(45deg); } }
   .scroll-hint.gone { opacity: 0; pointer-events: none; }
 
-  @media (min-width: 761px) and (max-height: 860px) {
-    .intro { min-height: 560px; }
-    .intro-ui { gap: 12px; }
-    .title { font-size: clamp(32px, 4.4vw, 56px); }
+  @media (min-width: 761px) and (max-height: 820px) {
+    .intro-ui { gap: 11px; padding: 20px 24px; }
+    .logo-card img { height: 64px; }
+    .title { font-size: clamp(32px, 4vw, 52px); }
     .tag { display: none; }
-    .credits { gap: 2px; }
-    .credits li { padding: 5px 0; }
-    .start { font-size: 20px; padding: 11px 24px; }
+    .credits li { padding: 5px 6px; }
+    .start { font-size: 19px; padding: 11px 24px 11px 20px; }
   }
   @media (max-width: 760px) {
-    .intro { min-height: 760px; }
-    .intro::before { background: linear-gradient(0deg, rgba(7, 6, 15, .96) 0%, rgba(7, 6, 15, .85) 52%, rgba(7, 6, 15, 0) 72%); }
-    .intro-ui { top: auto; bottom: 56px; transform: none; width: auto; right: max(16px, env(safe-area-inset-right, 0px));
-                left: max(16px, env(safe-area-inset-left, 0px)); gap: 12px; }
-    .intro-ui.gone { transform: translateY(30px); }
+    .intro { align-items: end; padding-block: 34svh 60px; }
+    .intro::after { background: linear-gradient(0deg, rgba(7, 6, 15, .9) 0%, rgba(7, 6, 15, .4) 50%, rgba(7, 6, 15, 0) 62%); }
+    .intro-ui { width: auto; margin: 0 max(12px, env(safe-area-inset-right, 0px)) 0 max(12px, env(safe-area-inset-left, 0px)); padding: 18px; gap: 12px; }
+    .intro-ui.gone { transform: translateY(24px); }
+    .logo-card img { height: 54px; }
     .tag, .start-hint { display: none; }
     .title { font-size: clamp(30px, 10vw, 44px); }
-    .credits { gap: 0; }
-    .credits li { padding: 4px 0; }
+    .credits li { padding: 4px 6px; }
     .credits .role { font-size: 10.5px; }
-    .start { font-size: 20px; padding: 12px 24px; }
+    .start { font-size: 19px; padding: 11px 24px 11px 20px; }
   }
 
   /* ================================================================ game layer */
-  .game-mode { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; overflow: auto;
-               background: radial-gradient(ellipse at 50% 35%, #161b33 0%, #07060f 70%);
+  .game-mode { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; overflow: auto; opacity: 0; transition: opacity .6s ease;
+               background: radial-gradient(ellipse at 50% 35%, #161b33 0%, #07060f 72%);
                padding: max(12px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px))
                         max(12px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)); }
+  .game-mode.show { opacity: 1; }
+  .game-mode:not(.show) { pointer-events: none; }
   .gm { width: min(100%, calc((100vh - 190px) * 4 / 3)); width: min(100%, calc((100dvh - 190px) * 4 / 3)); min-width: min(100%, 320px); display: grid; gap: 10px; }
+  .chrome { transition: opacity .5s ease .45s, transform .6s cubic-bezier(.2, .8, .2, 1) .45s; }
+  .game-mode:not(.show) .chrome { opacity: 0; transform: translateY(8px); transition-delay: 0s; }
   .gm-top { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 20px; }
   .back { font: 500 14px var(--body); color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; cursor: pointer; }
   .hud { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; font-family: var(--display); font-size: 13px; letter-spacing: .06em; }
@@ -115,13 +141,9 @@
   .views { margin-left: auto; display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
   .views button { font-family: var(--display); font-size: 12px; background: transparent; color: var(--muted); border: 0; padding: 7px 12px; cursor: pointer; }
   .views button[aria-pressed="true"] { background: var(--paddle); color: #04141a; }
-  .screen { position: relative; border-radius: 12px; overflow: hidden; background: #05050f;
-            box-shadow: 0 0 0 10px #10142a, 0 0 0 11px var(--line), 0 0 60px rgba(51, 214, 255, .18); }
+  .screen { position: relative; border-radius: 10px; overflow: hidden; background: #05050f;
+            box-shadow: 0 0 0 8px #0c1022, 0 0 0 9px var(--line), 0 0 70px rgba(51, 214, 255, .16); }
   .screen canvas { display: block; width: 100%; aspect-ratio: 4 / 3; max-width: 100%; touch-action: none; cursor: crosshair; }
-  .screen.power-on canvas { animation: crt-on .5s cubic-bezier(.2, .8, .2, 1); }
-  .screen.power-off canvas { animation: crt-off .35s ease-in forwards; }
-  @keyframes crt-on { 0% { transform: scale(.6, .004); filter: brightness(4); } 45% { transform: scale(1, .004); filter: brightness(3); } 100% { transform: none; filter: none; } }
-  @keyframes crt-off { 0% { transform: none; } 60% { transform: scale(1, .004); filter: brightness(3); } 100% { transform: scale(0, .004); filter: brightness(4); } }
   .banner { position: absolute; left: 0; right: 0; top: 52%; text-align: center; font-family: var(--display); font-size: clamp(18px, 3.4vw, 30px);
             letter-spacing: .14em; text-shadow: 0 2px 0 #000; pointer-events: none; }
   .toast { position: absolute; left: 50%; bottom: 12%; transform: translateX(-50%); max-width: 90%; background: rgba(10, 12, 24, .86); border: 1px solid var(--line);
@@ -136,48 +158,83 @@
   .speed input { width: 110px; accent-color: var(--paddle); }
   .speed output { font-family: var(--mono); color: var(--ink); min-width: 4ch; font-variant-numeric: tabular-nums; }
   .keys-line { margin: 0; font-size: 12.5px; color: var(--muted); }
-  .flash { position: fixed; inset: 0; z-index: 60; background: #e6f8ff; opacity: 0; pointer-events: none; transition: opacity .28s ease; }
-  .flash.on { opacity: 1; }
   @media (max-width: 640px) { .views, .speed { margin-left: 0; } }
 
-  /* ================================================================ notes below the fold */
-  .info { max-width: 1040px; margin: 0 auto; display: grid; gap: 44px; padding-block: 56px 72px;
-          padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
-  h2 { font-family: var(--display); font-size: 19px; font-weight: 400; letter-spacing: .05em; margin: 0 0 6px; color: var(--paddle); }
-  .sub { margin: 0 0 18px; color: var(--muted); max-width: 72ch; }
-  .team { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; }
-  .member { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 6px; align-content: start; }
-  .member .m { font-family: var(--display); font-size: 12px; color: var(--muted); letter-spacing: .08em; }
-  .member .name { font-weight: 600; font-size: 16px; }
-  .member .id { font-family: var(--mono); font-size: 13px; color: var(--muted); }
-  .member p { margin: 4px 0 0; font-size: 14px; }
-  .member .files { font-family: var(--mono); font-size: 12.5px; color: var(--paddle); }
-  .disclaimer { background: linear-gradient(90deg, rgba(255, 182, 72, .1), rgba(255, 182, 72, 0) 70%); border: 1px solid rgba(255, 182, 72, .35);
-                border-radius: 10px; padding: 18px 20px; display: grid; gap: 8px; }
-  .disclaimer h2 { color: var(--warn); }
-  .disclaimer p { margin: 0; max-width: 78ch; }
+  /* ================================================================ about the project */
+  .about { max-width: 1080px; margin: 0 auto; display: grid; gap: 64px; padding-block: 88px 64px;
+           padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
+  .about-head { display: grid; gap: 14px; justify-items: start; }
+  .kicker { margin: 0; font-family: var(--display); font-size: 13px; letter-spacing: .18em; color: var(--paddle); }
+  .about-title { margin: 0; font-family: var(--display); font-weight: 700; font-size: clamp(28px, 4vw, 44px); line-height: 1.08; text-wrap: balance; }
+  .lede { margin: 0; font-size: 17px; color: var(--muted); max-width: 62ch; }
+  .chips { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+  .chips li { font-size: 13px; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255, 255, 255, .03); }
+  h3 { margin: 0 0 18px; font-family: var(--display); font-weight: 400; font-size: 20px; letter-spacing: .05em; color: var(--ink); }
+  h3 small { display: block; margin-top: 6px; font-family: var(--body); font-size: 14px; letter-spacing: 0; color: var(--muted); }
+  .callout { display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: start; padding: 20px 22px; border-radius: 14px;
+             background: linear-gradient(100deg, rgba(255, 182, 72, .1), rgba(255, 182, 72, .02)); border: 1px solid rgba(255, 182, 72, .3); }
+  .callout .badge { font-family: var(--display); font-size: 12px; letter-spacing: .1em; color: #2a1a00; background: var(--warn); border-radius: 6px; padding: 5px 8px; white-space: nowrap; }
+  .callout p { margin: 0 0 6px; max-width: 80ch; }
+  .callout p:last-child { margin: 0; color: var(--muted); }
+  .team { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+  .member { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px 18px 18px; display: grid; gap: 8px;
+            align-content: start; overflow: hidden; transition: transform .25s ease, border-color .25s ease; }
+  .member::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; background: var(--c); box-shadow: 0 0 18px var(--c); }
+  .member:hover { transform: translateY(-4px); border-color: color-mix(in srgb, var(--c) 45%, var(--line)); }
+  .member .head { display: flex; gap: 12px; align-items: center; }
+  .avatar { width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center; font-family: var(--display); font-size: 15px;
+            color: #0b0b14; background: var(--c); flex: none; }
+  .member .m { font-family: var(--display); font-size: 11px; color: var(--muted); letter-spacing: .1em; }
+  .member .name { font-weight: 600; font-size: 16px; line-height: 1.25; }
+  .member .id { font-family: var(--mono); font-size: 12.5px; color: var(--muted); }
+  .member ul { margin: 4px 0 0; padding-left: 18px; font-size: 14px; display: grid; gap: 3px; }
+  .member .files { margin-top: 6px; font-family: var(--mono); font-size: 12px; color: var(--paddle); }
+  .flow { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; counter-reset: step; }
+  .flow li { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 14px 12px; display: grid; gap: 4px; counter-increment: step; }
+  .flow li::before { content: counter(step); font-family: var(--display); font-size: 12px; color: var(--paddle); }
+  .flow b { font-weight: 600; }
+  .flow span { font-size: 13px; color: var(--muted); }
+  .flow code { color: var(--paddle); font-size: 12px; }
   figure { margin: 0; }
   figcaption { font-size: 13px; color: var(--muted); margin-top: 8px; }
   .rec { display: grid; grid-template-columns: 1.6fr 1fr; gap: 16px; align-items: start; }
   .rec > * { min-width: 0; }
-  .rec img { display: block; width: 100%; border-radius: 8px; border: 1px solid var(--line); }
+  .rec img { display: block; width: 100%; border-radius: 10px; border: 1px solid var(--line); }
   .rec .side { display: grid; gap: 16px; }
-  .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(290px, 1fr)); gap: 20px; }
-  .two > * { min-width: 0; }
-  .box { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; }
-  dl.stats { display: grid; grid-template-columns: auto 1fr; gap: 7px 16px; margin: 0; font-variant-numeric: tabular-nums; }
-  dl.stats dt { color: var(--muted); }
-  dl.stats dd { margin: 0; font-family: var(--mono); font-size: 14px; text-align: right; }
-  dl.stats .good { color: var(--ok); }
+  .split { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; align-items: start; }
+  .split > * { min-width: 0; }
+  .tiles { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .tile { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; display: grid; gap: 2px; }
+  .tile b { font-family: var(--display); font-size: 22px; font-weight: 400; font-variant-numeric: tabular-nums; }
+  .tile b.good { color: var(--ok); }
+  .tile span { font-size: 13px; color: var(--muted); }
+  .box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
   pre { background: #0a0d17; border: 1px solid var(--line); border-radius: 8px; padding: 12px 14px; margin: 0; overflow-x: auto; font-family: var(--mono); font-size: 13.5px; }
-  .keys { width: 100%; border-collapse: collapse; font-size: 14px; }
+  .keys { width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 12px; }
   .keys td { padding: 6px 8px; border-top: 1px solid var(--line); vertical-align: top; }
   .keys tr:first-child td { border-top: 0; }
   .keys td:first-child { white-space: nowrap; width: 1%; }
   kbd { font-family: var(--mono); font-size: 12.5px; background: #0a0d17; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 4px; padding: 1px 6px; }
-  footer { color: var(--muted); font-size: 13px; border-top: 1px solid var(--line); padding-top: 18px; }
-  @media (max-width: 720px) { .rec { grid-template-columns: 1fr; } }
-  @media (prefers-reduced-motion: reduce) { .start { animation: none; } .screen.power-on canvas, .screen.power-off canvas { animation: none; } }
+  footer { display: flex; flex-wrap: wrap; gap: 16px 24px; align-items: center; justify-content: space-between; color: var(--muted); font-size: 13px;
+           border-top: 1px solid var(--line); padding-top: 22px; }
+  footer .foot-brand { display: flex; gap: 12px; align-items: center; }
+  footer .logo-card img { height: 40px; }
+  .to-top { font: 500 14px var(--body); color: #241a00; background: var(--coin); border-radius: 10px; padding: 9px 16px; text-decoration: none; }
+  @media (max-width: 720px) { .rec { grid-template-columns: 1fr; } .callout { grid-template-columns: 1fr; } }
+
+  /* Scroll reveal: browsers with scroll-driven animations fade each block in as it
+     enters the viewport; everywhere else the blocks are simply visible. */
+  @supports (animation-timeline: view()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .reveal { animation: reveal linear both; animation-timeline: view(); animation-range: entry 0% cover 26%; }
+      @keyframes reveal { from { opacity: 0; transform: translateY(46px) scale(.985); } to { opacity: 1; transform: none; } }
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .title .t2, .scroll-hint i { animation: none; }
+    .js .intro-ui > * { transition: none; }
+  }
 </style>
 </head>
 <body>
@@ -185,28 +242,31 @@
 <section class="intro" id="intro" aria-label="Intro">
   <div class="stage" id="stage"></div>
   <div class="intro-ui" id="introUi">
-    <p class="eyebrow"><b>Al Ain University</b> &middot; College of Engineering<br>Introduction to Computer Graphics &middot; 0102460 &middot; Course project</p>
-    <h1 class="title">ARCADE<span>BREAKOUT</span></h1>
-    <div class="bricks" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
-    <p class="tag">OpenGL Animated World: Breakout inside an arcade cabinet, in 2D and 3D, built from our own matrices and scene graph.</p>
-    <ul class="credits" aria-label="Team">
-      <li><span class="name">Bilal Feroz Khan</span><span class="id">202310641</span><span class="role">Lead &middot; engine, scene graph, GUI</span></li>
-      <li><span class="name">Dua Saleem</span><span class="id">202340011</span><span class="role">2D scene &middot; raster algorithms</span></li>
-      <li><span class="name">Mohammed Aamir Koilywala</span><span class="id">202311068</span><span class="role">2D animation &middot; gameplay</span></li>
-      <li><span class="name">Haya Ahmad Meslmani</span><span class="id">202211228</span><span class="role">3D scene &middot; lighting &middot; camera</span></li>
+    <div class="brand" style="--i:0">
+      <div class="logo-card"><img src="assets/aau-logo.png" alt="Al Ain University" width="640" height="526"></div>
+      <div class="brand-text"><b>College of Engineering</b><span>Computer Graphics &middot; 0102460</span><span>Course project</span></div>
+    </div>
+    <h1 class="title" style="--i:1"><span class="t1">ARCADE</span><span class="t2">BREAKOUT</span></h1>
+    <div class="bricks" style="--i:2" aria-hidden="true"><span></span><span></span><span></span><span></span><span></span></div>
+    <p class="tag" style="--i:3">Breakout inside an arcade cabinet, in 2D and 3D, built from our own matrices and scene graph.</p>
+    <ul class="credits" style="--i:4" aria-label="Team">
+      <li style="--c: var(--b1)"><span class="dot"></span><span class="name">Bilal Feroz Khan</span><span class="id">202310641</span><span class="role">Lead &middot; engine, scene graph, GUI</span></li>
+      <li style="--c: var(--b2)"><span class="dot"></span><span class="name">Dua Saleem</span><span class="id">202340011</span><span class="role">2D scene &middot; raster algorithms</span></li>
+      <li style="--c: var(--b4)"><span class="dot"></span><span class="name">Mohammed Aamir Koilywala</span><span class="id">202311068</span><span class="role">2D animation &middot; gameplay</span></li>
+      <li style="--c: var(--b5)"><span class="dot"></span><span class="name">Haya Ahmad Meslmani</span><span class="id">202211228</span><span class="role">3D scene &middot; lighting &middot; camera</span></li>
     </ul>
-    <div class="start-row">
+    <div class="start-row" style="--i:5">
       <button type="button" class="start" id="start">START</button>
       <p class="start-hint">or press Enter</p>
     </div>
-    <p class="extra-note">This 3D arcade intro is a presentation extra, made for the wow factor. The graded project is the team's Python + OpenGL program.</p>
+    <p class="extra-note" style="--i:6">This 3D arcade intro is a presentation extra, made for the wow factor. The graded project is the team's Python + OpenGL program.</p>
   </div>
-  <a class="scroll-hint" id="scrollHint" href="#about">About the project &darr;</a>
+  <a class="scroll-hint" id="scrollHint" href="#about"><span>About the project</span><i aria-hidden="true"></i></a>
 </section>
 
 <div class="game-mode" id="gameMode" hidden>
   <div class="gm">
-    <div class="gm-top">
+    <div class="gm-top chrome">
       <button type="button" class="back" id="exit">&larr; Back to the arcade</button>
       <div class="hud">
         <div class="stat"><span class="label">SCORE</span><span class="value" id="score">00000</span></div>
@@ -224,7 +284,7 @@
       <div class="banner" id="banner" hidden></div>
       <div class="toast" id="toast" hidden></div>
     </div>
-    <div class="deck">
+    <div class="deck chrome">
       <button type="button" class="arrow" id="left" aria-label="Move left">&#9664;</button>
       <button type="button" class="arrow" id="right" aria-label="Move right">&#9654;</button>
       <button type="button" id="serve">Serve</button>
@@ -233,81 +293,105 @@
       <button type="button" id="reset">Reset</button>
       <label class="speed" for="speed">Speed <input type="range" id="speed" min="0.5" max="2" step="0.25" value="1"><output id="speedOut" for="speed">1.0x</output></label>
     </div>
-    <p class="keys-line">&larr; &rarr; or mouse: move &middot; &uarr; or click: serve &middot; Space: pause &middot; V: 2D / 3D (drag to orbit, wheel to zoom) &middot; M: demo &middot; R: reset &middot; Esc: back to the arcade</p>
+    <p class="keys-line chrome">&larr; &rarr; or mouse: move &middot; &uarr; or click: serve &middot; Space: pause &middot; V: 2D / 3D (drag to orbit, wheel to zoom) &middot; M: demo &middot; R: reset &middot; Esc: back to the arcade</p>
   </div>
 </div>
-<div class="flash" id="flash"></div>
 
-<main class="info" id="about">
-  <section class="disclaimer">
-    <h2>About this page</h2>
-    <p>The 3D arcade cabinet, the camera zoom and this web page are a presentation extra, made for the wow factor. They are not part of the course requirements and are not what we hand in.</p>
-    <p>The game on the cabinet's screen is a JavaScript port of the team's Python program. It uses the same rules, figures, scene graph and matrix maths, and draws on a web canvas instead of OpenGL. Every member's part works the same way as in the Python version. The graded project is the Python + PyOpenGL + Tkinter program in the GitHub repository.</p>
-  </section>
+<main class="about" id="about">
+  <header class="about-head reveal">
+    <p class="kicker">ABOUT THE PROJECT</p>
+    <h2 class="about-title">Four modules, one arcade cabinet</h2>
+    <p class="lede">Our course project for Introduction to Computer Graphics: Breakout inside an arcade cabinet, drawn in 2D and 3D. Every object is a node in our own scene graph and is moved only with our own 3x3 and 4x4 matrices.</p>
+    <ul class="chips"><li>Python 3</li><li>PyOpenGL</li><li>Tkinter</li><li>Own 3x3 / 4x4 matrices</li><li>Scene graph</li><li>Timer-based animation</li><li>42 passing unit tests</li></ul>
+  </header>
 
-  <section>
-    <h2>The team</h2>
-    <p class="sub">Four members, one module each, merged on GitHub through feature branches.</p>
+  <aside class="callout reveal">
+    <span class="badge">WOW FACTOR</span>
+    <div>
+      <p>The 3D arcade hall, the camera zoom and this web page are a presentation extra. They are not part of the course requirements and are not what we hand in.</p>
+      <p>The game on the cabinet's screen is a JavaScript port of the team's Python program, with the same rules, figures, scene graph and matrix maths, drawn on a web canvas instead of OpenGL. Every member's part works the same way as in the Python version. The graded project is the Python + PyOpenGL + Tkinter program in the GitHub repository.</p>
+    </div>
+  </aside>
+
+  <section class="reveal">
+    <h3>The team<small>One module each, merged on GitHub through feature branches and pull requests.</small></h3>
     <div class="team">
-      <article class="member"><span class="m">MEMBER 1 &middot; LEAD</span><span class="name">Bilal Feroz Khan</span><span class="id">202310641</span>
-        <p>Own 3x3 and 4x4 matrices, the scene graph, the timer-based frame loop, the control panel and status bar, unit tests, GitHub and integration.</p>
-        <span class="files">matrices.py &middot; scene.py &middot; main.py &middot; gui.py</span></article>
-      <article class="member"><span class="m">MEMBER 2</span><span class="name">Dua Saleem</span><span class="id">202340011</span>
-        <p>The static 2D scene: cabinet frame, walls, rounded paddle, UFO with dome, hearts, joystick and buttons, Bresenham and midpoint-circle algorithms, letterboxing and click-to-select.</p>
-        <span class="files">raster.py &middot; figures.py (2D) &middot; render2d.py</span></article>
-      <article class="member"><span class="m">MEMBER 3</span><span class="name">Mohammed Aamir Koilywala</span><span class="id">202311068</span>
-        <p>The game and everything that moves in 2D: collisions, score, lives, levels, the UFO's curved path, power-up capsules, demo mode, save and load.</p>
-        <span class="files">game.py &middot; anim2d.py &middot; persist.py</span></article>
-      <article class="member"><span class="m">MEMBER 4</span><span class="name">Haya Ahmad Meslmani</span><span class="id">202211228</span>
-        <p>The 3D view: bevelled bricks and a turned trophy from vertex and face tables, an orbiting star, lighting with face normals and the orbit camera.</p>
-        <span class="files">figures.py (3D) &middot; render3d.py</span></article>
+      <article class="member" style="--c: var(--b1)">
+        <div class="head"><span class="avatar">BK</span><div><span class="m">MEMBER 1 &middot; LEAD</span><div class="name">Bilal Feroz Khan</div><span class="id">202310641</span></div></div>
+        <ul><li>Own 3x3 and 4x4 matrices</li><li>Scene graph: world = parent &middot; local</li><li>Timer-based frame loop, GUI, status bar</li><li>Unit tests, GitHub, integration</li></ul>
+        <span class="files">matrices.py &middot; scene.py &middot; main.py &middot; gui.py</span>
+      </article>
+      <article class="member" style="--c: var(--b2)">
+        <div class="head"><span class="avatar">DS</span><div><span class="m">MEMBER 2</span><div class="name">Dua Saleem</div><span class="id">202340011</span></div></div>
+        <ul><li>The static 2D scene and its figures</li><li>Bresenham and midpoint circle</li><li>Letterboxing on resize</li><li>Click-to-select with the inverse matrix</li></ul>
+        <span class="files">raster.py &middot; figures.py (2D) &middot; render2d.py</span>
+      </article>
+      <article class="member" style="--c: var(--b4)">
+        <div class="head"><span class="avatar">MK</span><div><span class="m">MEMBER 3</span><div class="name">Mohammed Aamir Koilywala</div><span class="id">202311068</span></div></div>
+        <ul><li>Collisions, score, lives and levels</li><li>The UFO's curved path and its lights</li><li>Power-up capsules and demo mode</li><li>Save and load settings</li></ul>
+        <span class="files">game.py &middot; anim2d.py &middot; persist.py</span>
+      </article>
+      <article class="member" style="--c: var(--b5)">
+        <div class="head"><span class="avatar">HM</span><div><span class="m">MEMBER 4</span><div class="name">Haya Ahmad Meslmani</div><span class="id">202211228</span></div></div>
+        <ul><li>Bevelled bricks from vertex tables</li><li>Trophy turned from a profile</li><li>Orbiting star, lighting, normals</li><li>Orbit camera with mouse and wheel</li></ul>
+        <span class="files">figures.py (3D) &middot; render3d.py</span>
+      </article>
     </div>
   </section>
 
-  <section>
-    <h2>The real program</h2>
-    <p class="sub">Recorded from the Python version on Windows after all branches were merged. Demo mode plays by itself for 35 seconds and switches from 2D to 3D at the 24-second mark.</p>
+  <section class="reveal">
+    <h3>One frame, start to finish<small>What happens about 60 times a second in the Python program.</small></h3>
+    <ol class="flow">
+      <li><b>Input</b><span>Keys, mouse and sliders change the game's numbers.</span><code>gui.py</code></li>
+      <li><b>Rules</b><span><code>update(dt)</code> moves the ball, checks collisions, keeps score.</span><code>game.py</code></li>
+      <li><b>Animation</b><span>The numbers become each node's T &middot; R &middot; S.</span><code>anim2d.py</code></li>
+      <li><b>Scene graph</b><span>world = parent world &middot; local, down the tree.</span><code>scene.py</code></li>
+      <li><b>Matrices</b><span>Our own 3x3 / 4x4 maths, sent with glMultMatrixf.</span><code>matrices.py</code></li>
+      <li><b>Drawing</b><span>2D raster algorithms, or 3D with light and a camera.</span><code>render2d.py / render3d.py</code></li>
+    </ol>
+  </section>
+
+  <section class="reveal">
+    <h3>The real program<small>Recorded from the Python version on Windows after all branches were merged.</small></h3>
     <div class="rec">
-      <figure><img src="assets/gameplay.gif" alt="Recording of the Python program: bricks break and fall, the UFO crosses the sky, a capsule drops, then the view turns to lit 3D bricks with a gold trophy."><figcaption>OpenGL canvas, 2x speed</figcaption></figure>
+      <figure><img src="assets/gameplay.gif" alt="Recording of the Python program: bricks break and fall, the UFO crosses the sky, a capsule drops, then the view turns to lit 3D bricks with a gold trophy." loading="lazy"><figcaption>Demo mode at 2x speed, switching from 2D to 3D after 24 seconds</figcaption></figure>
       <div class="side">
-        <figure><img src="assets/still_2d.png" alt="2D view: coloured bricks, a green UFO, a falling capsule, the cyan paddle, joystick and buttons."><figcaption>2D view</figcaption></figure>
-        <figure><img src="assets/still_3d.png" alt="3D view: lit bevelled bricks at an angle, a sphere ball, the paddle and a gold trophy with a star."><figcaption>3D view, camera orbited</figcaption></figure>
+        <figure><img src="assets/still_2d.png" alt="2D view: coloured bricks, a green UFO, a falling capsule, the cyan paddle, joystick and buttons." loading="lazy"><figcaption>2D view</figcaption></figure>
+        <figure><img src="assets/still_3d.png" alt="3D view: lit bevelled bricks at an angle, a sphere ball, the paddle and a gold trophy with a star." loading="lazy"><figcaption>3D view, camera orbited</figcaption></figure>
       </div>
     </div>
   </section>
 
-  <div class="two">
-    <section class="box">
-      <h2>Play-test</h2>
-      <dl class="stats">
-        <dt>Verdict</dt><dd class="good">Playable</dd>
-        <dt>Bricks broken in 35 s</dt><dd>22 of 50</dd>
-        <dt>Score</dt><dd>0 &rarr; 295</dd>
-        <dt>Lives</dt><dd>3 &rarr; 4 (pink capsule)</dd>
-        <dt>Runtime errors</dt><dd>0</dd>
-        <dt>Unit tests</dt><dd>42 pass, 3 to write</dd>
-        <dt>Frame rate 2D / 3D</dt><dd>~48 / ~37 FPS</dd>
-      </dl>
+  <div class="split reveal">
+    <section>
+      <h3>Play-test</h3>
+      <div class="tiles">
+        <div class="tile"><b class="good">PLAYABLE</b><span>after all three merges</span></div>
+        <div class="tile"><b>0</b><span>runtime errors in 35 s</span></div>
+        <div class="tile"><b>22/50</b><span>bricks broken by demo mode</span></div>
+        <div class="tile"><b>42</b><span>unit tests pass, 3 to write</span></div>
+      </div>
     </section>
     <section class="box">
-      <h2>Run the Python version</h2>
+      <h3 style="margin-bottom:12px">Run the Python version</h3>
       <pre>git clone https://github.com/bilal-feroz/Comp-Graphics-Project.git
 cd Comp-Graphics-Project
 pip install -r requirements.txt
 cd code
 python main.py</pre>
-      <table class="keys" style="margin-top:12px">
-        <tr><td><kbd>&larr;</kbd> <kbd>&rarr;</kbd></td><td>Move the paddle</td></tr>
-        <tr><td><kbd>&uarr;</kbd></td><td>Serve the ball</td></tr>
-        <tr><td><kbd>Space</kbd></td><td>Pause and play</td></tr>
-        <tr><td><kbd>V</kbd></td><td>Switch between 2D and 3D</td></tr>
-        <tr><td><kbd>M</kbd> &middot; <kbd>R</kbd> &middot; <kbd>H</kbd></td><td>Demo mode, reset, help</td></tr>
+      <table class="keys">
+        <tr><td><kbd>&larr;</kbd> <kbd>&rarr;</kbd> <kbd>&uarr;</kbd></td><td>Move the paddle, serve</td></tr>
+        <tr><td><kbd>Space</kbd> <kbd>V</kbd></td><td>Pause, switch 2D / 3D</td></tr>
+        <tr><td><kbd>M</kbd> <kbd>R</kbd> <kbd>H</kbd></td><td>Demo mode, reset, help</td></tr>
       </table>
     </section>
   </div>
 
-  <footer>Arcade Breakout &middot; Introduction to Computer Graphics (0102460), Al Ain University &middot;
-    Code: <a href="https://github.com/bilal-feroz/Comp-Graphics-Project">github.com/bilal-feroz/Comp-Graphics-Project</a></footer>
+  <footer>
+    <div class="foot-brand"><span class="logo-card"><img src="assets/aau-logo.png" alt="Al Ain University" width="640" height="526" loading="lazy"></span>
+      <span>Introduction to Computer Graphics (0102460)<br>Code: <a href="https://github.com/bilal-feroz/Comp-Graphics-Project">github.com/bilal-feroz/Comp-Graphics-Project</a></span></div>
+    <a class="to-top" href="#intro">&#9650; Back to the arcade</a>
+  </footer>
 </main>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
