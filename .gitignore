@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Media and drafts stay out of the repo (submitted on Moodle instead)
+*.mp4
+*.mov
+*.pptx
+*.docx
+*.pdf
+~$*
+
+# Screenshots and settings written by the program
+screenshots/
+settings.json
