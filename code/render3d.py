@@ -29,7 +29,7 @@ from OpenGL.GL import (GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT, GL_DEPTH_TEST,
                        glLoadIdentity, glMatrixMode, glVertex3f, glViewport,
                        glNormal3f, glLightfv, glMaterialfv, glColorMaterial)
 
-from OpenGL.GLU import gluLookAt, gluPerspective
+from OpenGL.GLU import gluLookAt, gluPerspective, gluNewQuadric, gluSphere, gluDeleteQuadric
 import math
 import figures
 import game as rules
@@ -45,7 +45,8 @@ def build_scene():
     root = Node("world", dim=3)
     root.add(Node("paddle", figures.box(2 * rules.PADDLE_HALF_WIDTH, 0.4, 0.6),
                   (0.2, 0.85, 1.0), dim=3, ty=rules.PADDLE_Y))
-    root.add(Node("ball", figures.box(0.6, 0.6, 0.6), (1.0, 1.0, 1.0), dim=3))
+    root.add(Node("ball", figures.box(0.6, 0.6, 0.6),
+              (1.0, 1.0, 1.0), dim=3))
     bricks = root.add(Node("bricks", dim=3))
     for row in range(rules.BRICK_ROWS):
         for col in range(rules.BRICK_COLS):
@@ -122,9 +123,15 @@ def _inside(node, selected):
 
 
 def _wireframe(node, highlighted):
-    vertices, faces = node.figure
-
     glColor3f(*(SELECTED_COLOUR if highlighted else node.color))
+
+    if node.name == "ball":
+        quadric = gluNewQuadric()
+        gluSphere(quadric, 0.3, 24, 16)
+        gluDeleteQuadric(quadric)
+        return
+
+    vertices, faces = node.figure
 
     for face in faces:
         v0 = vertices[face[0]]
