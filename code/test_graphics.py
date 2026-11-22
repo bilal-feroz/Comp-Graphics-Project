@@ -446,18 +446,60 @@ class TestPersist(unittest.TestCase):
 # TODO(M4): replace the skip markers with the real tests.
 
 class TestFigures3D(unittest.TestCase):
+    """Member 4's 3D figures and orbit (tests added during integration; the code under test is unchanged)."""
 
-    @unittest.skip("TODO(M4): every face index is in range and every face has 3+ vertices")
+    def setUp(self):
+        import figures
+        self.figures = figures
+
     def test_face_tables_are_valid(self):
-        pass
+        """Every face index is in range and every face has at least 3 vertices."""
+        shapes = {"bevelled brick": self.figures.bevelled_brick(1.8, 0.6, 0.6), "trophy": self.figures.trophy(),
+                  "star": self.figures.star(), "box": self.figures.box(3.0, 0.4, 0.6)}
+        for name, (vertices, faces) in shapes.items():
+            for face in faces:
+                self.assertGreaterEqual(len(face), 3, name)
+                self.assertTrue(all(0 <= i < len(vertices) for i in face), name)
 
-    @unittest.skip("TODO(M4): every brick normal has length 1 and points away from the centre")
     def test_brick_normals_point_outwards(self):
-        pass
+        """Every brick face normal (Newell's method, normalised) has length 1 and points away from the centre."""
+        vertices, faces = self.figures.bevelled_brick(1.8, 0.6, 0.6)
+        for face in faces:
+            points = [vertices[i] for i in face]
+            n = [0.0, 0.0, 0.0]
+            for (x1, y1, z1), (x2, y2, z2) in zip(points, points[1:] + points[:1]):
+                n[0] += (y1 - y2) * (z1 + z2)
+                n[1] += (z1 - z2) * (x1 + x2)
+                n[2] += (x1 - x2) * (y1 + y2)
+            length = math.sqrt(sum(c * c for c in n))
+            unit = [c / length for c in n]
+            self.assertAlmostEqual(math.sqrt(sum(c * c for c in unit)), 1.0)
+            centre = [sum(p[k] for p in points) / len(points) for k in range(3)]
+            self.assertGreater(sum(u * c for u, c in zip(unit, centre)), 0.0)   # the brick's centre is the origin
 
-    @unittest.skip("TODO(M4): the orbiting star stays at distance r from the trophy axis")
     def test_star_orbit_radius(self):
-        pass
+        """The orbiting star stays at distance r = 2 from the trophy's axis."""
+        import game as rules
+        import render3d
+        root, game = render3d.build_scene(), rules.Game(seed=1)
+        star = root.find("star")
+        for _ in range(60):
+            render3d.sync(root, game, 0.07)
+            self.assertAlmostEqual(math.hypot(star.tx, star.tz), 2.0)
+
+
+# ======================================================================= Member 1: arcade-pixel overlay
+
+class TestArcadePixels(unittest.TestCase):
+
+    def test_score_digits_are_drawn_with_the_raster_algorithms(self):
+        """A seven-segment 8 lights more arcade pixels than a 1, and every pixel stays in the digit's box."""
+        import hud2d
+        fill8, outline8 = hud2d.digit_pixels(8)
+        fill1, outline1 = hud2d.digit_pixels(1)
+        self.assertGreater(len(fill8 | outline8), len(fill1 | outline1))
+        for x, y in fill8 | outline8:
+            self.assertTrue(0 <= x <= hud2d.DIGIT_W and 0 <= y <= hud2d.DIGIT_H)
 
 
 if __name__ == "__main__":
