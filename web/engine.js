@@ -609,7 +609,7 @@
     }
   }
   const camera = {
-    yaw: 0, pitch: 25, distance: 22,                 // gui.CameraControls defaults
+    yaw: 0, pitch: 15, distance: 27,                 // gui.CameraControls defaults (whole field + trophy in view)
     drag(dx, dy) { this.yaw = mod(this.yaw + dx * 0.5 + 180, 360) - 180; this.pitch = clamp(this.pitch + dy * 0.5, -80, 80); },
     wheel(steps) { this.distance = clamp(this.distance - steps * 1.5, 8, 40); },
   };
