@@ -99,9 +99,24 @@ def _wireframe(node, highlighted):
         glEnd()
 
 
+
 def on_drag(camera, dx, dy):
-    """TODO(M4): orbit, e.g. camera.set(yaw=camera.yaw + dx * 0.5, pitch=camera.pitch + dy * 0.5)."""
+    """Orbit the camera when the mouse is dragged."""
+    yaw = camera.yaw + dx * 0.5
+    pitch = camera.pitch + dy * 0.5
+
+    # Keep the camera from flipping upside down
+    pitch = max(-80.0, min(80.0, pitch))
+
+    camera.set(yaw=yaw, pitch=pitch)
 
 
 def on_wheel(camera, steps):
-    """TODO(M4): zoom, e.g. camera.set(distance=camera.distance - steps)."""
+    """Zoom the camera in and out."""
+    distance = camera.distance - steps * 1.5
+
+    # Keep the camera at a safe distance
+    distance = max(8.0, min(40.0, distance))
+
+    camera.set(distance=distance)
+
