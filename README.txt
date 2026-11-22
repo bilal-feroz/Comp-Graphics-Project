@@ -102,3 +102,14 @@ FILES (code/)
 
 More detail: docs/HOW_IT_WORKS.md (architecture, scene graph, frame loop)
              docs/GAMEPLAY.md     (game rules, collisions, 2D animation, save / load)
+
+
+WEB SHOWCASE (presentation extra - NOT part of the graded project)
+------------------------------------------------------------------
+The web/ folder holds a 3D arcade intro made with three.js, only for the
+wow factor in the presentation. It shows the project and the team, then the
+camera zooms into an arcade cabinet and the same game can be played in a
+browser (a JavaScript port of the Python program above, with every member's
+part kept the same). It is not part of the course requirements and it is not
+in the submission zip. The graded program is the Python code in code/.
+Live: https://arcade-breakout-two.vercel.app    Details: web/README.md
