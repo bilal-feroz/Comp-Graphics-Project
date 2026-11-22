@@ -21,7 +21,7 @@ ball, GL_LIGHTING + normals + glMaterial, orbit camera from the sliders
 """
 
 from OpenGL.GL import (GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT, GL_DEPTH_TEST,
-                       GL_LINE_LOOP, GL_QUADS, GL_LIGHTING, GL_LIGHT0,
+                       GL_LINE_LOOP, GL_POLYGON, GL_LIGHTING, GL_LIGHT0,
                        GL_COLOR_MATERIAL, GL_NORMALIZE, GL_FRONT_AND_BACK,
                        GL_AMBIENT_AND_DIFFUSE, GL_POSITION, GL_DIFFUSE,
                        GL_MODELVIEW, GL_PROJECTION, glBegin, glClear,
@@ -141,7 +141,7 @@ def _wireframe(node, highlighted):
             a[0] * b[1] - a[1] * b[0]
         )
 
-        glBegin(GL_QUADS)
+        glBegin(GL_POLYGON)
         glNormal3f(*normal)
 
         for index in face:
