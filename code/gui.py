@@ -245,9 +245,9 @@ class CameraControls:
             pass                          # render3d reads the values every frame
         self.yaw_row = SliderRow(parent, first_row, "Yaw (deg)", -180, 180, 0,
                                  nothing, on_error, digits=0)
-        self.pitch_row = SliderRow(parent, first_row + 1, "Pitch (deg)", -80, 80, 25,
+        self.pitch_row = SliderRow(parent, first_row + 1, "Pitch (deg)", -80, 80, 15,
                                    nothing, on_error, digits=0)
-        self.distance_row = SliderRow(parent, first_row + 2, "Distance", 5, 40, 22,
+        self.distance_row = SliderRow(parent, first_row + 2, "Distance", 5, 40, 27,
                                       nothing, on_error, digits=1)
 
     @property
