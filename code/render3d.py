@@ -19,12 +19,18 @@ TODO(M4): bevelled bricks, trophy and star from vertex/face tables, gluSphere
 ball, GL_LIGHTING + normals + glMaterial, orbit camera from the sliders
 (gluLookAt), mouse orbit and zoom, trophy turntable and orbiting star.
 """
-from OpenGL.GL import (GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT, GL_DEPTH_TEST, GL_LINE_LOOP, GL_QUADS,
-                       GL_MODELVIEW, GL_PROJECTION, glBegin, glClear, glColor3f, glEnable,
-                       glEnd, glLineWidth, glLoadIdentity, glMatrixMode, glVertex3f,
-                       glViewport)
-from OpenGL.GLU import gluLookAt, gluPerspective
 
+from OpenGL.GL import (GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT, GL_DEPTH_TEST,
+                       GL_LINE_LOOP, GL_QUADS, GL_LIGHTING, GL_LIGHT0,
+                       GL_COLOR_MATERIAL, GL_NORMALIZE, GL_FRONT_AND_BACK,
+                       GL_AMBIENT_AND_DIFFUSE, GL_POSITION, GL_DIFFUSE,
+                       GL_MODELVIEW, GL_PROJECTION, glBegin, glClear,
+                       glColor3f, glEnable, glEnd, glLineWidth,
+                       glLoadIdentity, glMatrixMode, glVertex3f, glViewport,
+                       glNormal3f, glLightfv, glMaterialfv, glColorMaterial)
+
+from OpenGL.GLU import gluLookAt, gluPerspective
+import math
 import figures
 import game as rules
 from scene import Node
@@ -73,9 +79,35 @@ def draw(root, width, height, camera, selected=None):
     gluPerspective(45.0, width / float(max(height, 1)), 0.1, 100.0)
     glMatrixMode(GL_MODELVIEW)
     glLoadIdentity()
-    # TODO(M4): orbit camera built from camera.yaw, camera.pitch, camera.distance.
-    gluLookAt(0.0, -6.0, 24.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.0)
+  
+    yaw_r = math.radians(camera.yaw)
+    pitch_r = math.radians(camera.pitch)
+
+    cx = camera.distance * math.cos(pitch_r) * math.sin(yaw_r)
+    cy = 1.0 + camera.distance * math.sin(pitch_r)
+    cz = camera.distance * math.cos(pitch_r) * math.cos(yaw_r)
+
+    gluLookAt(
+        cx, cy, cz,
+        0.0, 1.0, 0.0,
+        0.0, 1.0, 0.0
+    )
     glEnable(GL_DEPTH_TEST)
+
+    
+    glEnable(GL_LIGHTING)
+    glEnable(GL_LIGHT0)
+    glEnable(GL_COLOR_MATERIAL)
+    glEnable(GL_NORMALIZE)
+
+    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
+
+   
+    glLightfv(GL_LIGHT0, GL_POSITION, (5.0, 8.0, 10.0, 1.0))
+
+   
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, (1.0, 1.0, 1.0, 1.0))
+
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
     draw_tree(root, lambda node: _wireframe(node, _inside(node, selected)))
 
@@ -88,16 +120,34 @@ def _inside(node, selected):
     return False
 
 
+
 def _wireframe(node, highlighted):
     vertices, faces = node.figure
 
     glColor3f(*(SELECTED_COLOUR if highlighted else node.color))
 
-    glBegin(GL_QUADS)
     for face in faces:
+        v0 = vertices[face[0]]
+        v1 = vertices[face[1]]
+        v2 = vertices[face[2]]
+
+       
+        a = (v1[0] - v0[0], v1[1] - v0[1], v1[2] - v0[2])
+        b = (v2[0] - v0[0], v2[1] - v0[1], v2[2] - v0[2])
+
+        normal = (
+            a[1] * b[2] - a[2] * b[1],
+            a[2] * b[0] - a[0] * b[2],
+            a[0] * b[1] - a[1] * b[0]
+        )
+
+        glBegin(GL_QUADS)
+        glNormal3f(*normal)
+
         for index in face:
             glVertex3f(*vertices[index])
-    glEnd()
+
+        glEnd()
 
 
 
@@ -106,7 +156,7 @@ def on_drag(camera, dx, dy):
     yaw = camera.yaw + dx * 0.5
     pitch = camera.pitch + dy * 0.5
 
-    # Keep the camera from flipping upside down
+   
     pitch = max(-80.0, min(80.0, pitch))
 
     camera.set(yaw=yaw, pitch=pitch)
@@ -116,7 +166,7 @@ def on_wheel(camera, steps):
     """Zoom the camera in and out."""
     distance = camera.distance - steps * 1.5
 
-    # Keep the camera at a safe distance
+   
     distance = max(8.0, min(40.0, distance))
 
     camera.set(distance=distance)
