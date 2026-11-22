@@ -19,7 +19,7 @@ TODO(M4): bevelled bricks, trophy and star from vertex/face tables, gluSphere
 ball, GL_LIGHTING + normals + glMaterial, orbit camera from the sliders
 (gluLookAt), mouse orbit and zoom, trophy turntable and orbiting star.
 """
-from OpenGL.GL import (GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT, GL_DEPTH_TEST, GL_LINE_LOOP,
+from OpenGL.GL import (GL_COLOR_BUFFER_BIT, GL_DEPTH_BUFFER_BIT, GL_DEPTH_TEST, GL_LINE_LOOP, GL_QUADS,
                        GL_MODELVIEW, GL_PROJECTION, glBegin, glClear, glColor3f, glEnable,
                        glEnd, glLineWidth, glLoadIdentity, glMatrixMode, glVertex3f,
                        glViewport)
@@ -90,13 +90,14 @@ def _inside(node, selected):
 
 def _wireframe(node, highlighted):
     vertices, faces = node.figure
-    glLineWidth(2.5 if highlighted else 1.0)
+
     glColor3f(*(SELECTED_COLOUR if highlighted else node.color))
+
+    glBegin(GL_QUADS)
     for face in faces:
-        glBegin(GL_LINE_LOOP)
         for index in face:
             glVertex3f(*vertices[index])
-        glEnd()
+    glEnd()
 
 
 
